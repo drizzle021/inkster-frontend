@@ -1,7 +1,16 @@
 import { View, Text, StyleSheet, TextInput, Button, Image } from 'react-native';
-import { Link } from 'expo-router'
+import { Link, useRouter } from 'expo-router'
+import { useNavigation } from '@react-navigation/native';
 
 export default function Register() {
+  const router = useRouter();
+
+  const handleSignUp = () => {
+    router.push('/setup');
+  };
+
+
+
   return (
     <View style={styles.container}>
         <Image source={require('../../assets/images/splash-icon-dark.png')} style={styles.icon} />
@@ -35,7 +44,8 @@ export default function Register() {
               />
           </View>
             
-          <Button title='Sign up' color='black'/>
+          <Button title='Sign up' color='black' onPress={handleSignUp}/>
+
         </View>
         <Link href='./login' style={styles.registerLink} >
             <Text style={styles.registerText}>Already have an account? Log in!</Text>

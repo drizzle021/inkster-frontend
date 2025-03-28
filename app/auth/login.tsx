@@ -1,12 +1,19 @@
 import { View, Text, StyleSheet, TextInput, Button, Image, useColorScheme } from 'react-native';
-import { Link } from 'expo-router'
+import { Link, useRouter } from 'expo-router'
 
 export default function Login() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const styles = colorScheme === 'dark' ? darkStyles : lightStyles;
   const iconSource = colorScheme === 'dark'
     ? require('../../assets/images/splash-icon-dark.png')
     : require('../../assets/images/splash-icon.png');
+
+  const handleLogin = () => {
+    router.push('/home');
+  };
+
+
   return (
     <View style={styles.container}>
         <Image source={iconSource} style={styles.icon} />
@@ -30,7 +37,7 @@ export default function Login() {
               />
           </View>
             
-          <Button title='Login' color='black'/>
+          <Button title='Login' color='black' onPress={handleLogin}/>
 
         </View>
         <Link href='./register' style={styles.registerLink} >
