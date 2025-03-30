@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     label: {
-        fontSize: 20,
+        fontSize: 16,
         fontWeight: 'bold',
     },
     postsContainer: {

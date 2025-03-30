@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SheetManager } from 'react-native-actions-sheet';
 
 const BottomNavigation = () => {
   const router = useRouter();
@@ -15,7 +16,7 @@ const BottomNavigation = () => {
   };
   
   const addPost = async () => {
-    router.push('../home');
+    router.push('../addPost');
   };
 
   const openSavedPosts = async () => {
@@ -43,7 +44,7 @@ const BottomNavigation = () => {
         />
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.icon} onPress={addPost}>
+      <TouchableOpacity style={styles.icon} onPress={() => SheetManager.show('add-post-sheet')}>
         <Image
           source={require('../../assets/images/plus_icon.png')}
           style={styles.iconImage}

@@ -39,8 +39,8 @@ const styles = StyleSheet.create({
         height: 40,
         paddingHorizontal: 10,
         backgroundColor: '#FFF',
-        borderBottomWidth: 1,
-        borderBottomColor: '#ccc',
+        // borderBottomWidth: 1,
+        // borderBottomColor: '#ccc',
         position: 'relative',
     },
     settingsButtonText: {

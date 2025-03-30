@@ -28,7 +28,7 @@ const ProfileScreen = () => {
                     style={styles.bannerPic}
                 />
                 <Image 
-                source={require('../assets/images/shaq.png')} 
+                source={require('../assets/images/bing.png')} 
                 style={styles.profilePic} 
                 />
                 <View style={styles.userInfo}>
@@ -179,6 +179,7 @@ const styles = StyleSheet.create({
     width: 100,  
     justifyContent: 'center', 
     alignItems: 'center', 
+    marginRight: 20
   },
   followButtonText: {
     color: '#fff',
