@@ -11,12 +11,18 @@ export default function PostActionsSheet() {
     };
     const saveImage = async () => {
         router.push('../home');
+        await SheetManager.hide('post-actions');
+
     };
     const report = async () => {
-        router.push('../home');
+        router.push('../submitReport');
+        await SheetManager.hide('post-actions');
+
     };
     const editPost = async () => {
-        router.push('../home');
+        router.push('../addPost');
+        await SheetManager.hide('post-actions');
+
     };
     return (
         <ActionSheet id="post-actions">

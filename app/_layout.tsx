@@ -3,6 +3,7 @@ import { SheetProvider } from 'react-native-actions-sheet';
 // import 'react-native-actions-sheet/src/components/action-sheet-style';
 import PostActionsSheet from './components/postActionSheet';
 import AddPostSheet from './components/addPostSheet';
+import OpenCommentsSheet from './components/openCommentsSheet';
 
 
 export default function RootLayout() {
@@ -10,6 +11,7 @@ export default function RootLayout() {
     <SheetProvider>
       <PostActionsSheet />
       <AddPostSheet />
+      <OpenCommentsSheet />
       <Stack
         screenOptions={{
           headerShown: false,

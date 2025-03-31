@@ -10,7 +10,14 @@ export default function SearchPage() {
   const router = useRouter();
 
   const search = async () => {
-    router.push('./home');
+    router.push({
+      pathname: './searchResults',
+      params: {
+        keywords,
+        tags,
+        type: selectedType
+      }
+    });
   };
 
 

@@ -20,52 +20,57 @@ const SettingsScreen = () => {
     const openReports = () => {
         router.push('/reports');
     };
-      const handleProfilePicSelect = async () => {
-        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        
-        if (permissionResult.granted === false) {
-          alert('Permission to access media library is required!');
-          return;
-        }
-      
-        // Launch the image picker to select an image
-        const pickerResult = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: "images",
-          allowsEditing: true, 
-          aspect: [4, 4], 
-          quality: 1, 
-        });
-      
-        if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
-          const {uri} = pickerResult.assets[0];
-          setSelectedProfilePic(uri);
-          // setProfilePic(uri);  
-        }
-      };
+
+
+    const handleProfilePicSelect = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
-      const handleProfileBannerSelect = async () => {
-        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        
-        if (permissionResult.granted === false) {
-          alert('Permission to access media library is required!');
-          return;
-        }
-      
-        // Launch the image picker to select an image
-        const pickerResult = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: 'images',
-          allowsEditing: true, 
-          aspect: [4, 4], 
-          quality: 1, 
-        });
-      
-        if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
-          const {uri} = pickerResult.assets[0];
-          setSelectedProfileBanner(uri);
+    if (permissionResult.granted === false) {
+        alert('Permission to access media library is required!');
+        return;
+    }
     
-        }
-      };
+    // Launch the image picker to select an image
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: "images",
+        allowsEditing: true, 
+        aspect: [4, 4], 
+        quality: 1, 
+    });
+
+    if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
+        const {uri} = pickerResult.assets[0];
+        console.log("URIURIURIURI      ", uri)
+        setSelectedProfilePic(uri);
+        // setProfilePic(uri);  
+    }
+    };
+
+
     
+    const handleProfileBannerSelect = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+        alert('Permission to access media library is required!');
+        return;
+    }
+    
+    // Launch the image picker to select an image
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true, 
+        aspect: [4, 4], 
+        quality: 1, 
+    });
+    
+    if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
+        const {uri} = pickerResult.assets[0];
+        setSelectedProfileBanner(uri);
+
+    }
+    };
+
 
     const toggleDarkMode = () => setIsDarkMode(prev => !prev);  // Toggle Dark Mode
 
