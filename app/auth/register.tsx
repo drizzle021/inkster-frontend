@@ -1,12 +1,42 @@
-import { View, Text, StyleSheet, TextInput, Button, Image } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Button, Image, Alert } from 'react-native';
 import { Link, useRouter } from 'expo-router'
 import { useNavigation } from '@react-navigation/native';
+import React, { useState } from 'react';
 
 export default function Register() {
   const router = useRouter();
 
-  const handleSignUp = () => {
-    router.push('/setup');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSignUp = async () => {
+    const formData = new URLSearchParams();
+    formData.append('username', username);
+    formData.append('email', email);
+    formData.append('password', password);
+
+    try {
+      const res = await fetch('http://localhost:5000/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString(),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Registration failed');
+      }
+
+      const result = await res.json();
+      console.log('Registered:', result);
+      router.push('/setup');
+    } catch (err: any) {
+      console.error('Registration error:', err.message);
+      Alert.alert('Error', err.message);
+    }
   };
 
 
@@ -22,6 +52,8 @@ export default function Register() {
                 keyboardType='default' 
                 autoCapitalize='none' 
                 autoCorrect={false} 
+                onChangeText={setUsername}
+                value={username}
               />
           </View>
           <View style={styles.inputGroup}>
@@ -30,8 +62,9 @@ export default function Register() {
                 style={styles.input} 
                 keyboardType='email-address'
                 autoCapitalize='none' 
-                autoCorrect={false}  
-
+                autoCorrect={false} 
+                onChangeText={setEmail} 
+                value={email}
               />
           </View>
           <View style={styles.inputGroup}>
@@ -41,6 +74,8 @@ export default function Register() {
                 secureTextEntry 
                 autoCapitalize='none' 
                 autoCorrect={false} 
+                onChangeText={setPassword}
+                value={password}
               />
           </View>
             

@@ -5,7 +5,7 @@ import TopNavigation from './components/top_navigation';
 import { useRouter } from 'expo-router';
 import Icon from 'react-native-vector-icons/AntDesign';
 import * as ImagePicker from 'expo-image-picker';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SettingsScreen = () => {
     const [isDarkMode, setIsDarkMode] = useState(false);
@@ -14,7 +14,9 @@ const SettingsScreen = () => {
     
 
     const router = useRouter();
-    const handleLogout = () => {
+
+    const handleLogout = async () => {
+        await AsyncStorage.removeItem('token');
         router.push('/auth/login');
     };
     const openReports = () => {
@@ -40,7 +42,6 @@ const SettingsScreen = () => {
 
     if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
         const {uri} = pickerResult.assets[0];
-        console.log("URIURIURIURI      ", uri)
         setSelectedProfilePic(uri);
         // setProfilePic(uri);  
     }

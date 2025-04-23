@@ -1,30 +1,66 @@
 import { View, Text, StyleSheet, TextInput, Button, Image, useColorScheme } from 'react-native';
 import { Link, useRouter } from 'expo-router'
+import React, { useState, useEffect, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 export default function Login() {
   const router = useRouter();
   const colorScheme = useColorScheme();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const onLogin = useCallback(() => {
+    const formData = new URLSearchParams();
+    formData.append('email', email);
+    formData.append('password', password);
+
+    fetch('http://localhost:5000/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData.toString(),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Login failed');
+        return res.json();
+      })
+      .then(async (data) => {
+        const token = data.access_token;
+        if (token) {
+          await AsyncStorage.setItem('token', token);
+          console.log('Token stored!');
+          router.push('/home');
+        } else {
+          alert('Login failed. No token received.');
+        }
+      })
+      .catch((err) => {
+        console.error('Login error:', err);
+        alert('Login failed. Please check your credentials.');
+      });
+  }, [email, password]);
+  
   const styles = colorScheme === 'dark' ? darkStyles : lightStyles;
   const iconSource = colorScheme === 'dark'
     ? require('../../assets/images/splash-icon-dark.png')
     : require('../../assets/images/splash-icon.png');
-
-  const handleLogin = () => {
-    router.push('/home');
-  };
-
 
   return (
     <View style={styles.container}>
         <Image source={iconSource} style={styles.icon} />
         <View style={styles.formContainer}>
           <View style={styles.inputGroup}>
-              <Text style={styles.label}>Username</Text>
+              <Text style={styles.label}>Email</Text>
               <TextInput 
                 style={styles.input} 
                 keyboardType='default' 
                 autoCapitalize='none' 
                 autoCorrect={false} 
+                value={email}
+                onChangeText={setEmail}
               />
           </View>
           <View style={styles.inputGroup}>
@@ -34,10 +70,12 @@ export default function Login() {
                 secureTextEntry 
                 autoCapitalize='none' 
                 autoCorrect={false} 
+                value={password}
+                onChangeText={setPassword}
               />
           </View>
             
-          <Button title='Login' color='black' onPress={handleLogin}/>
+          <Button title='Login' color='black' onPress={onLogin}/>
 
         </View>
         <Link href='./register' style={styles.registerLink} >

@@ -6,16 +6,18 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import Icon from 'react-native-vector-icons/Feather';
 import { Dimensions } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function AddPost() {
-  const { postType } = useLocalSearchParams();
+  const { postType } = useLocalSearchParams<{ postType?: string }>();
+  const resolvedPostType = Array.isArray(postType) ? postType[0] : postType;
+  
   const [images, setImages] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const router = useRouter();
-  // const { images, postType } = useLocalSearchParams();
+  // const { post_type, PostType } = useLocalSearchParams();
   // const selectedImages = images ? JSON.parse(images as string) : [];
 
 
@@ -43,9 +45,55 @@ export default function AddPost() {
     })();
   }, []);
 
-  const openProfile = async () => {
-    router.push('../profile');
+  const submitPost = async () => {
+    const token = await AsyncStorage.getItem('token');
+    const formData = new FormData();
+    console.log(resolvedPostType)
+    formData.append('title', title);
+    formData.append('caption', caption);
+    formData.append('description', altText);
+    formData.append('is_spoilered', spoiler.toString());
+    formData.append('software', 'Procreate'); // or a value from the software picker
+    formData.append('post_type', resolvedPostType);
+    
+    // Parse tags string into a list
+    tags.split(',').map(tag => tag.trim()).forEach(tag => {
+      formData.append('tag_list', tag);
+    });
+  
+    // Append image files
+    images.forEach((img, index) => {
+      formData.append('images', {
+        uri: img.uri,
+        name: `image_${index}.jpg`,
+        type: 'image/jpeg',
+      } as any); 
+    });
+  
+    try {
+      const res = await fetch('http://localhost:5000/posts', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // 'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+  
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create post');
+      
+      console.log('Post success:', data);
+      router.push('/profile');
+    } catch (err) {
+      if (err instanceof Error) {
+        alert('Error creating post: ' + err.message);
+      } else {
+        alert('An unknown error occurred');
+      }
+    }
   };
+  
 
   const handleScroll = (event: any) => {
     const index = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
@@ -90,7 +138,7 @@ export default function AddPost() {
             onChangeText={setTitle}
           />
 
-          <Text style={styles.label}>Caption</Text>
+          <Text style={styles.label}>Caption<Text style={styles.required}>*</Text></Text>
           <TextInput
             style={[styles.input, styles.textArea]}
             placeholder="Enter caption..."
@@ -126,7 +174,7 @@ export default function AddPost() {
             <Icon name="chevron-right" size={20} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.postButton} onPress={openProfile}>
+          <TouchableOpacity style={styles.postButton} onPress={submitPost}>
             <Text style={styles.postButtonText}>Post</Text>
           </TouchableOpacity>
         </View>

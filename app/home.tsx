@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dimensions, View, Text, Image, StyleSheet,
   TouchableOpacity, ScrollView, FlatList, NativeSyntheticEvent, NativeScrollEvent
@@ -10,14 +10,12 @@ import Icon from 'react-native-vector-icons/Feather';
 import { useRouter } from 'expo-router';
 import { SheetManager } from 'react-native-actions-sheet';
 import { TouchableWithoutFeedback } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const screenWidth = Dimensions.get('window').width;
 
 
-const PostCarousel = ({
-  images,
-  onImageTap,
-}: {
+const PostCarousel = ({images,onImageTap}: {
   images: any[];
   onImageTap: (index: number) => void;
 }) => {
@@ -53,6 +51,20 @@ const PostCarousel = ({
   );
 };
 
+interface PostType {
+  id: string | number;
+  title: string;
+  caption: string;
+  post_type: string;
+  created_at: string;
+  author: {
+    username: string;
+    profile_picture: string;
+  };
+  tags: string[];
+  is_liked: boolean;
+  // images?: string[]; // if you want to use this later
+}
 
 
 
@@ -60,6 +72,33 @@ const Post = ({ post }: { post: any }) => {
   const [likedPost, setLikedPost] = useState(false);
   const router = useRouter();
 
+  const getRelativeTime = (dateString: string): string => {
+    const now = new Date().getTime();
+    const posted = new Date(dateString).getTime();
+    const diff = Math.floor((now - posted) / 1000); // in seconds
+  
+    const intervals: [Intl.RelativeTimeFormatUnit, number][] = [
+      ['year', 31536000],
+      ['month', 2592000],
+      ['week', 604800],
+      ['day', 86400],
+      ['hour', 3600],
+      ['minute', 60],
+      ['second', 1],
+    ];
+  
+    for (let i = 0; i < intervals.length; i++) {
+      const [label, seconds] = intervals[i];
+      const value = Math.floor(diff / seconds);
+      if (value > 0) {
+        return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(-value, label);
+      }
+    }
+  
+    return 'just now';
+  };
+  
+  
   const openImage = async () => {
     router.push('./imageViewer');
   };
@@ -69,7 +108,7 @@ const Post = ({ post }: { post: any }) => {
       <View style={styles.header}>
         <Image source={require('../assets/images/penguin.png')} style={styles.avatar} />
         <View>
-          <Text style={styles.name}>{post.user}</Text>
+          <Text style={styles.name}>{post.author.username}</Text>
           <Text style={styles.subtext}>{post.title}</Text>
         </View>
         <TouchableOpacity style={styles.menuIcon} onPress={() => SheetManager.show('post-actions')}>
@@ -78,7 +117,7 @@ const Post = ({ post }: { post: any }) => {
       </View>
 
       <TouchableOpacity  activeOpacity={1}>
-        <PostCarousel images={post.images} onImageTap={openImage} />
+        {/* <PostCarousel images={post.images} onImageTap={openImage} /> */}
       </TouchableOpacity>
 
       <View style={styles.actions}>
@@ -97,10 +136,8 @@ const Post = ({ post }: { post: any }) => {
         {/* <Icon name="more-horizontal" size={25} style={styles.swipeIcon} /> */}
       </View>
 
-      <Text style={styles.caption}>
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.
-      </Text>
-      <Text style={styles.timestamp}>8m ago</Text>
+      <Text style={styles.caption}>{post.caption}</Text>
+      <Text style={styles.timestamp}>{getRelativeTime(post.created_at)}</Text>    
     </View>
   );
 };
@@ -108,32 +145,55 @@ const Post = ({ post }: { post: any }) => {
 const HomeScreen = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('Illustration');
+  const [data, setData] = useState<PostType[]>([]);
 
-  const posts = [
-    {
-      id: '1',
-      user: 'Name',
-      title: 'post name',
-      images: [
-        require('../assets/images/bing.png'),
-        require('../assets/images/penguin.png'),
-      ],
-    },
-    {
-      id: '2',
-      user: 'Name',
-      title: 'post name',
-      images: [
-        require('../assets/images/penguin.png'),
-        require('../assets/images/bing.png'),
-        require('../assets/images/penguin.png'),
-      ],
-    },
-  ];
+  // const posts = [
+  //   {
+  //     id: '1',
+  //     user: 'Name',
+  //     title: 'post name',
+  //     images: [
+  //       require('../assets/images/bing.png'),
+  //       require('../assets/images/penguin.png'),
+  //     ],
+  //   },
+  //   {
+  //     id: '2',
+  //     user: 'Name',
+  //     title: 'post name',
+  //     images: [
+  //       require('../assets/images/penguin.png'),
+  //       require('../assets/images/bing.png'),
+  //       require('../assets/images/penguin.png'),
+  //     ],
+  //   },
+  // ];
 
   const openSearch = async () => {
     router.push('./search');
   };
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/posts', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+  
+        if (!res.ok) throw new Error('Failed to fetch posts');
+        const json = await res.json();
+        setData(json);
+      } catch (err) {
+        console.error('Error fetching posts:', err);
+      }
+    };
+  
+    fetchPosts();
+  }, []);
+  
 
   return (
     <View style={styles.container}>
@@ -158,9 +218,16 @@ const HomeScreen = () => {
       </View>
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {posts.map((post) => (
-          <Post key={post.id} post={post} />
-        ))}
+        {data
+          .filter((post) => {
+            if (activeTab === 'Novels') return post.post_type === 'NOVEL';
+            if (activeTab === 'Illustration') return post.post_type === 'ILLUSTRATION';
+            return true;
+          })
+          .map((post, index) => (
+            <Post key={index} post={post} />
+          ))
+        }
       </ScrollView>
 
       <BottomNavigation />

@@ -38,8 +38,9 @@ export default function AddPostSheet() {
     //   }
     // };
 
-    const addPost = (postType: 'illustration' | 'novel') => {
+    const addPost = (postType: 'ILLUSTRATION' | 'NOVEL') => {
       SheetManager.hide('add-post-sheet');
+      console.log("POST TYPE: ", postType)
       router.push({
         pathname: '../addPost',
         params: { postType },
@@ -49,10 +50,10 @@ export default function AddPostSheet() {
     return (
         <ActionSheet id="add-post-sheet">
         <View style={styles.sheet}>
-            <TouchableOpacity style={styles.option} onPress={() => addPost('illustration')}>
+            <TouchableOpacity style={styles.option} onPress={() => addPost('ILLUSTRATION')}>
             <Text style={styles.optionText}>Illustration</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.option} onPress={() => addPost('novel')}>
+            <TouchableOpacity style={styles.option} onPress={() => addPost('NOVEL')}>
             <Text style={styles.optionText}>Novel</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.option}>
