@@ -15,7 +15,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.anonymous.inkster"
     },
     "web": {
       "bundler": "metro",
@@ -34,7 +35,6 @@
             "backgroundColor": "#000000"
           },
           "imageWidth": 200
-          
         }
       ]
     ],

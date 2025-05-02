@@ -11,6 +11,11 @@ import { useRouter } from 'expo-router';
 import { SheetManager } from 'react-native-actions-sheet';
 import { TouchableWithoutFeedback } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiFetch, getImageUrl } from './api';
+import { useSelectedPost } from './contexts/selectedPostContext';
+import { useSelectedUser } from './contexts/selectedUserContext';
+import FastImage from 'react-native-fast-image';
+import { BlurView } from 'expo-blur';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -63,13 +68,25 @@ interface PostType {
   };
   tags: string[];
   is_liked: boolean;
+  is_saved: boolean;
   // images?: string[]; // if you want to use this later
 }
 
+declare module 'react-native-actions-sheet' {
+  interface Sheets {
+    'post-actions': {
+      onDeletePost?: (deletedPostId: number) => void;
+    };
+  }
+}
 
 
-const Post = ({ post }: { post: any }) => {
-  const [likedPost, setLikedPost] = useState(false);
+const Post = ({ post, onDeletePost }: { post: any, onDeletePost: (deletedPostId: number) => void }) => {
+  const [likedPost, setLikedPost] = useState(post.is_liked);
+  const [savedPost, setSavedPost] = useState(post.is_saved);
+  const [token, setToken] = useState<string | null>(null);
+  const { setSelectedPost } = useSelectedPost();
+  const { setSelectedUser } = useSelectedUser();
   const router = useRouter();
 
   const getRelativeTime = (dateString: string): string => {
@@ -98,30 +115,162 @@ const Post = ({ post }: { post: any }) => {
     return 'just now';
   };
   
+  const handleLike = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        console.error('No token found');
+        router.push('/auth/login');
+        return;
+      }
   
-  const openImage = async () => {
-    router.push('./imageViewer');
+      await apiFetch(`/posts/like/${post.id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      console.log(post.id)
+      setLikedPost(!likedPost); 
+    } catch (err: any) {
+      console.error('Failed to like post:', err.message || err);
+    }
   };
+
+  const handleSave = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        console.error('No token found');
+        router.push('/auth/login');
+        return;
+      }
+
+      await apiFetch(`/posts/save/${post.id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      console.log('Saved post:', post.id);
+      setSavedPost(!savedPost);
+    } catch (err: any) {
+      console.error('Failed to save post:', err.message || err);
+    }
+  };
+
+  // const openImage = async () => {
+  //   setSelectedPost(post);
+  //   router.push('/imageViewer');
+  // };
+  const openImage = async (postId: number) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        console.error('No token found');
+        router.push('/auth/login');
+        return;
+      }
+  
+      const post = await apiFetch(`/posts/${postId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+  
+      setSelectedPost(post.data);
+      router.push('/imageViewer');
+    } catch (err) {
+      console.error('Failed to load post details', err);
+    }
+  };
+
+  const openProfile = async (userId: number) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        console.error('No token found');
+        router.push('/auth/login');
+        return;
+      }
+
+      const user = await apiFetch(`/users/${userId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+  
+      setSelectedUser(user.data);
+      router.push('/profile');
+    } catch (err) {
+      console.error('Failed to load post details', err);
+    }
+  };
+
+  useEffect(() => {
+    const loadToken = async () => {
+      const storedToken = await AsyncStorage.getItem('token');
+      setToken(storedToken);
+    };
+    loadToken();
+  }, []);
+  
 
   return (
     <View style={styles.postContainer}>
       <View style={styles.header}>
-        <Image source={require('../assets/images/penguin.png')} style={styles.avatar} />
-        <View>
-          <Text style={styles.name}>{post.author.username}</Text>
-          <Text style={styles.subtext}>{post.title}</Text>
-        </View>
-        <TouchableOpacity style={styles.menuIcon} onPress={() => SheetManager.show('post-actions')}>
-          <Icon name="more-vertical" size={25} style={styles.menuIcon} />
+        <TouchableOpacity onPress={() => openProfile(post.author.id)}>
+          <Image source={require('../assets/images/penguin.png')} style={styles.avatar} />
+        </TouchableOpacity>
+
+        {/* Flex container for username and title */}
+        <TouchableOpacity onPress={() => openProfile(post.author.id)} style={styles.textContainer}>
+          <View style={styles.textContainer}>
+            <Text style={styles.name} numberOfLines={1}>{post.author.username}</Text>
+            <Text style={styles.subtext} numberOfLines={1}>{post.title}</Text>
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.menuIconContainer}
+          onPress={() => {
+            setSelectedPost(post);
+            SheetManager.show('post-actions', {
+              payload: {
+                onDeletePost,
+              }
+            });
+          }}
+        >
+          <Icon name="more-vertical" size={24} color="gray" />
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity  activeOpacity={1}>
+      <TouchableOpacity activeOpacity={1} onPress={() => openImage(post.id)}>
         {/* <PostCarousel images={post.images} onImageTap={openImage} /> */}
+        {/* <Image source={require('../assets/images/penguin.png')} style={styles.carouselImage}/> */}
+        {/* <Image
+          source={{ uri: getImageUrl(post.id, 1) }}
+          style={styles.carouselImage}
+        /> */}
+        <View style={styles.imageWrapper}>
+          <FastImage
+            source={{
+              uri: getImageUrl(post.id),
+              headers: {
+                Authorization: `Bearer ${token}`, 
+              },
+              priority: FastImage.priority.normal,
+            }}
+            style={styles.carouselImage}
+            resizeMode={FastImage.resizeMode.cover}
+          />
+
+          {post.is_spoilered && (
+            <View style={styles.spoilerOverlay}>
+              <Text style={styles.spoilerText}>Spoilered</Text>
+            </View>
+          )}
+        </View>
       </TouchableOpacity>
 
       <View style={styles.actions}>
-        <TouchableOpacity onPress={() => setLikedPost(!likedPost)}>
+        <TouchableOpacity onPress={handleLike}>
           <FontAwesome
             name={likedPost ? 'heart' : 'heart-o'}
             size={24}
@@ -134,10 +283,21 @@ const Post = ({ post }: { post: any }) => {
           <Icon name="message-circle" size={24} />
         </TouchableOpacity>
         {/* <Icon name="more-horizontal" size={25} style={styles.swipeIcon} /> */}
+        <TouchableOpacity
+          style={styles.commentIcon}
+          onPress={handleSave}>
+          <FontAwesome
+            name={savedPost ? 'bookmark' : 'bookmark-o'}
+            size={24}
+            color={savedPost ? '#7B61FF' : 'black'}
+          />
+        </TouchableOpacity>
       </View>
 
       <Text style={styles.caption}>{post.caption}</Text>
-      <Text style={styles.timestamp}>{getRelativeTime(post.created_at)}</Text>    
+      {/* <Text style={styles.timestamp}>{getRelativeTime(post.created_at)}</Text>     */}
+      <Text style={styles.caption}>ID: {post.id}</Text>
+
     </View>
   );
 };
@@ -177,22 +337,29 @@ const HomeScreen = () => {
     const fetchPosts = async () => {
       try {
         const token = await AsyncStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/posts', {
+        if (!token) {
+          console.error('No token found');
+          console.warn('Token expired. Redirecting to login.');
+          await AsyncStorage.removeItem('token');
+          router.push('/auth/login');
+          return;
+        }
+  
+        const posts = await apiFetch<PostType[]>('/posts', {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
         });
   
-        if (!res.ok) throw new Error('Failed to fetch posts');
-        const json = await res.json();
-        setData(json);
-      } catch (err) {
-        console.error('Error fetching posts:', err);
+        setData(posts.data);
+      } catch (err: any) {
+        console.error('Error fetching posts:', err.message || err);
       }
     };
   
     fetchPosts();
   }, []);
+  
   
 
   return (
@@ -218,16 +385,22 @@ const HomeScreen = () => {
       </View>
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {data
-          .filter((post) => {
-            if (activeTab === 'Novels') return post.post_type === 'NOVEL';
-            if (activeTab === 'Illustration') return post.post_type === 'ILLUSTRATION';
-            return true;
-          })
-          .map((post, index) => (
-            <Post key={index} post={post} />
-          ))
-        }
+      {data
+        .filter((post) => {
+          if (activeTab === 'Novels') return post.post_type === 'NOVEL';
+          if (activeTab === 'Illustration') return post.post_type === 'ILLUSTRATION';
+          return true;
+        })
+        .map((post, index) => (
+          <Post 
+            key={index} 
+            post={post} 
+            onDeletePost={(deletedPostId) => {
+              setData(prevData => prevData.filter(p => p.id !== deletedPostId));
+            }} 
+          />
+        ))
+      }
       </ScrollView>
 
       <BottomNavigation />
@@ -241,29 +414,37 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff' 
   },
   header: {
-    flexDirection: 'row', 
-    alignItems: 'center', 
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 10,
+    paddingHorizontal: 10,
   },
   avatar: {
-    width: 36, 
-    height: 36, 
+    width: 36,
+    height: 36,
     borderRadius: 18,
-    marginRight: 10, 
-    marginLeft: 10,
+    marginRight: 10,
+  },
+  textContainer: {
+    flex: 1,
+    justifyContent: 'center',
   },
   name: {
-    fontWeight: 'bold', 
+    fontWeight: 'bold',
     fontSize: 16,
+    color: '#000',
   },
   subtext: {
-    fontSize: 12, 
+    fontSize: 12,
     color: 'gray',
   },
-  menuIcon: {
-    marginLeft: '48%', 
-    color: 'gray',
+  menuIconContainer: {
+    paddingLeft: 10,
+    paddingRight: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
+  
   swipeIcon: {
     marginLeft: '70%', 
     color: 'gray',
@@ -332,6 +513,27 @@ const styles = StyleSheet.create({
   },
   activeDot: {
     backgroundColor: '#000',
+  },
+  imageWrapper: {
+    position: 'relative',
+    width: screenWidth,
+    height: 300,
+    overflow: 'hidden',
+  },
+  
+  spoilerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  
+  spoilerText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
 
