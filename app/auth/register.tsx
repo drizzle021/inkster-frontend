@@ -1,7 +1,9 @@
 import { View, Text, StyleSheet, TextInput, Button, Image, Alert } from 'react-native';
 import { Link, useRouter } from 'expo-router'
 import { useNavigation } from '@react-navigation/native';
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { apiFetch } from '../api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Register() {
   const router = useRouter();
@@ -10,14 +12,15 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleSignUp = async () => {
+  const handleSignUp = useCallback(async () => {
     const formData = new URLSearchParams();
     formData.append('username', username);
     formData.append('email', email);
     formData.append('password', password);
-
+  
     try {
-      const res = await fetch('http://localhost:5000/auth/register', {
+
+      const res_register = await apiFetch('/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -25,20 +28,29 @@ export default function Register() {
         body: formData.toString(),
       });
 
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || 'Registration failed');
+      const res_login = await apiFetch('/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString(),
+      });
+
+      const token = res_login.data.access_token;
+      if (token) {
+        await AsyncStorage.setItem('token', token);
+        console.log('Token stored!');
+        router.push('/setup');
+      } else {
+        alert('Login failed. No token received.');
       }
 
-      const result = await res.json();
-      console.log('Registered:', result);
-      router.push('/setup');
-    } catch (err: any) {
-      console.error('Registration error:', err.message);
-      Alert.alert('Error', err.message);
+      
+    } catch (err) {
+      console.error('Register error:', err);
+      alert('Register failed. Please try again.');
     }
-  };
-
+  }, [username, email, password, router]);
 
 
   return (

@@ -4,7 +4,10 @@ import TopNavigation from './components/top_navigation';
 import { Link, useRouter } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { apiFetch, getImageUrl, getUserBannerImageUrl, getUserProfileImageUrl } from './api';
+import { useSelectedPost } from './contexts/selectedPostContext';
+import { useSelectedUser } from './contexts/selectedUserContext';
+import FastImage from 'react-native-fast-image';
 
 interface UserPost {
   id: number;
@@ -27,6 +30,8 @@ interface UserProfile {
   following: number;
   posts: UserPost[];
   tags: string[];
+  role: string;
+  is_following?: boolean;
 }
 
 
@@ -36,35 +41,115 @@ const ProfileScreen = () => {
     const router = useRouter();
 
     const [user, setUser] = useState<UserProfile | null>(null);
+    const { setSelectedPost } = useSelectedPost();
+    const { selectedUser } = useSelectedUser();
+    const [token, setToken] = useState<string | null>(null);
+
+
+
     useEffect(() => {
-      const fetchUser = async () => {
-        const token = await AsyncStorage.getItem('token');
+      const fetchData = async () => {
         try {
-          const res = await fetch('http://localhost:5000/users/me', {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
+          const token = await AsyncStorage.getItem('token');
+          if (!token) {
+            console.error('No token found');
+            return;
+          }
+    
+          setToken(token);
+    
+
+          const loggedInUser = await apiFetch<UserProfile>('/users/me', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setLoggedInUserId(loggedInUser.data.id); 
+    
+          // 2. Fetch the selected profile
+          const url = selectedUser ? `/users/${selectedUser.id}` : '/users/me';
+          const userData = await apiFetch<UserProfile>(url, {
+            headers: { Authorization: `Bearer ${token}` },
           });
     
-          if (!res.ok) throw new Error('Failed to fetch user');
-          const data = await res.json();
-          setUser(data); 
-          setLoggedInUserId(data.id);
-        } catch (err) {
-          console.error('Error loading user:', err);
+          setUser(userData.data);
+          setIsFollowing(userData.data.is_following || false);
+    
+        } catch (err: any) {
+          console.error('Error loading user:', err.message || err);
         }
       };
     
-      fetchUser();
-    }, []);
+      fetchData();
+    }, [selectedUser]);
     
-    const openPost = async () => {
-        router.push('/profile');
+
+    function formatTags(tags: string[] = []) {
+      return tags.map(tag => `#${tag}`).join(' ');
+    }
+
+    const openImage = async (postId: number) => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          console.error('No token found');
+          router.push('/auth/login');
+          return;
+        }
+    
+        const post = await apiFetch(`/posts/${postId}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+    
+        setSelectedPost(post.data);
+        router.push('/imageViewer');
+      } catch (err) {
+        console.error('Failed to load post details', err);
+      }
     };
 
-    const toggleFollow = () => {
-        setIsFollowing((prev) => !prev);  // Toggle follow/unfollow
+    const toggleFollow = async () => {
+      if (!user) return;
+    
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          console.error('No token found');
+          router.push('/auth/login');
+          return;
+        }
+    
+        // Toggle follow API
+        await apiFetch(`/users/follow/${user.id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+    
+        // 1. Update local follow state
+        setIsFollowing((prev) => !prev);
+    
+        // 2. Update "followers" count for the viewed user
+        setUser((prevUser) => 
+          prevUser
+            ? { ...prevUser, followers: prevUser.followers + (isFollowing ? -1 : 1) }
+            : prevUser
+        );
+    
+        // 3. If viewing your own profile, update "following" counter too
+        if (loggedInUserId === user?.id) {
+          setUser((prevUser) => 
+            prevUser
+              ? { ...prevUser, following: prevUser.following + (isFollowing ? -1 : 1) }
+              : prevUser
+          );
+        }
+    
+      } catch (err: any) {
+        console.error('Failed to toggle follow:', err.message || err);
+      }
     };
+    
+    
 
     return (
         <View style={styles.container}>
@@ -84,35 +169,33 @@ const ProfileScreen = () => {
                 />
                 <View style={styles.userInfo}>
                 <View style={styles.nameFollowContainer}>
-                    {/* Empty left column */}
-                    <View style={styles.column}></View>
-                    
-                    {/* Center column for name */}
-                    <Text style={styles.userName}>{user?.username}</Text>
-                    
-                    {/* Right column for follow button */}
-                    {loggedInUserId !== user?.id && (
-                      <TouchableOpacity
-                      style={[
-                      styles.followButton,
-                      {
-                          backgroundColor: isFollowing ? '#fff' : '#7B61FF', 
-                          borderColor: isFollowing ? '#7B61FF' : 'transparent', 
-                          borderWidth: isFollowing ? 2 : 2, 
-                      },
-                      ]}
-                      onPress={toggleFollow}>
-                        <Text
-                        style={[
-                            styles.followButtonText,
-                            { color: isFollowing ? '#7B61FF' : '#fff' }, 
-                        ]}
-                        >
-                        {isFollowing ? 'Unfollow' : 'Follow'}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
+                  <View style={styles.spacer} />
 
+                  <View style={styles.usernameContainer}>
+                    <Text style={styles.userName}>{user?.username}</Text>
+                  </View>
+
+                  {loggedInUserId !== user?.id ? (
+                    <TouchableOpacity
+                      style={styles.followButton}
+                      onPress={toggleFollow}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.followButtonText,
+                        { color: '#fff' },
+                      ]}>
+                        {isFollowing ? 'Unfollow' : 'Follow'}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.followButtonPlaceholder} />
+                  )}
+                </View>
+
+
+                <View>
+                  <Text style={styles.tags}>{ formatTags(user?.tags) }</Text>
                 </View>
 
                 {/* Stats Section - Posts, Followers, Following */}
@@ -135,22 +218,68 @@ const ProfileScreen = () => {
             </View>
 
             {/* Posts Grid */}
-            <View style={styles.postsContainer}>
-            <View style={styles.postsContainer}>
+            {/* <View style={styles.postsContainer}>
               {user?.posts.map((post) => (
-                <TouchableOpacity
-                  key={post.id}
-                  style={styles.postItem}
-                  onPress={openPost}
-                >
-                  <View style={styles.postItem}>
-                    <Text>{post.title}</Text>
-                  </View>
+                <TouchableOpacity activeOpacity={1} onPress={() => openImage(post.id)}>
+                  <FastImage
+                    source={{
+                      uri: getImageUrl(post.id),
+                      headers: {
+                        Authorization: `Bearer ${token}`, 
+                      },
+                      priority: FastImage.priority.normal,
+                    }}
+                    style={styles.postItem}
+                    resizeMode={FastImage.resizeMode.cover}
+                  />
                 </TouchableOpacity>
               ))}
+            </View> */}
+
+            <View style={styles.postsContainer}>
+              {user?.posts && user.posts.length > 0 && (
+                [...user.posts]
+                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) // NEW: sort by date
+                  .reduce((rows: UserPost[][], post, index) => {
+                    if (index % 2 === 0) rows.push([post]);
+                    else rows[rows.length - 1].push(post);
+                    return rows;
+                  }, [])
+                  .map((row, rowIndex) => (
+                    <View key={rowIndex} style={styles.postRow}>
+                      {row.map((post) => (
+                        <TouchableOpacity
+                          key={post.id}
+                          style={styles.postItem}
+                          activeOpacity={0.8}
+                          onPress={() => openImage(post.id)}
+                        >
+                        <View style={styles.imageWrapper}>
+                          <FastImage
+                            source={{
+                              uri: getImageUrl(post.id),
+                              headers: {
+                                Authorization: `Bearer ${token}`,
+                              },
+                              priority: FastImage.priority.normal,
+                            }}
+                            style={styles.postImage}
+                            resizeMode={FastImage.resizeMode.cover}
+                          />
+                          {post.is_spoilered && (
+                            <View style={styles.spoilerOverlay}>
+                              <Text style={styles.spoilerText}>Spoilered</Text>
+                            </View>
+                          )}
+                        </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ))
+              )}
             </View>
 
-            </View>
+
             </ScrollView>
 
             <BottomNavigation />
@@ -192,34 +321,50 @@ const styles = StyleSheet.create({
   },
   nameFollowContainer: {
     flexDirection: 'row',
-    width: '100%',
     alignItems: 'center',
-    justifyContent: 'space-between',  
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 10,
+    paddingHorizontal: 20,
   },
-  column: {
+  
+  spacer: {
+    width: 100, // Same as button width to balance the left
+  },
+  
+  usernameContainer: {
     flex: 1,
-    justifyContent: 'center',  
-    alignItems: 'center',       
+    alignItems: 'center',
   },
+  
   userName: {
     fontSize: 24,
-    flex: 1,
     fontWeight: 'bold',
-    textAlign: 'center',  
+    textAlign: 'center',
   },
+  
   followButton: {
+    width: 100,
     paddingVertical: 8,
-    paddingHorizontal: 20,
+    backgroundColor: '#7B61FF',
     borderRadius: 20,
-    width: 100,  
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    marginRight: 20
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  
   followButtonText: {
-    color: '#fff',
     fontWeight: 'bold',
+    fontSize: 16,
   },
+  
+  followButtonPlaceholder: {
+    width: 100, // Same width as the real button
+    height: 36, // Approx height of button
+  },
+  
+  
+  
+  
 
   /* Stats Row */
   statsRow: {
@@ -251,15 +396,44 @@ const styles = StyleSheet.create({
   },
   postRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 10,
-    alignItems: 'center',
   },
   postItem: {
     width: '48%',
-    height: 150,
+    aspectRatio: 1, // keep it square
     backgroundColor: '#ccc',
     borderRadius: 10,
-    marginRight: '4%',
+  },
+  postImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 10,
+  },
+  tags: {
+    color: "#7B61FF",
+    fontWeight: 'bold',
+  },
+  imageWrapper: {
+    position: 'relative',
+
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  
+  spoilerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  
+  spoilerText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
 

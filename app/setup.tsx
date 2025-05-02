@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, Button, Image, TouchableOpacity } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-
-
+import { apiFetch } from './api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Setup() {
   const colorScheme = useColorScheme();
@@ -21,9 +21,54 @@ export default function Setup() {
   const skipSetup = async () => {
     router.push('/home');
   };
-  const saveSetup = async () => {
-    router.push('/home');
-  };
+  // const saveSetup = async () => {
+  //   router.push('/home');
+
+  //   const res_register = await apiFetch('/auth/register', {
+  //     method: 'POST',
+  //     headers: {
+  //       'Content-Type': 'application/x-www-form-urlencoded',
+  //     },
+  //     body: formData.toString(),
+  //   });
+  // };
+
+  const saveSetup = useCallback(async () => {
+    const formData = new URLSearchParams();
+    formData.append('tags', tags);
+  
+    try {
+
+      const res = await apiFetch('/users/update-tags', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString(),
+      });
+      // const res_profile_pic = await apiFetch('/users/update-pictures', {
+      //   method: 'PUT',
+      //   headers: {
+      //     'Content-Type': 'application/x-www-form-urlencoded',
+      //   },
+      //   body: formData.toString(),
+      // });
+
+      // const res_banner = await apiFetch('/users/update-pictures', {
+      //   method: 'PUT',
+      //   headers: {
+      //     'Content-Type': 'application/x-www-form-urlencoded',
+      //   },
+      //   body: formData.toString(),
+      // });
+      router.push('/home');
+      
+    } catch (err) {
+      console.error('Register error:', err);
+      alert('Register failed. Please try again.');
+    }
+  }, [tags, router]);
+
 
 
   const handleProfilePicSelect = async () => {
