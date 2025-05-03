@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import TopNavigation from './components/top_navigation';
 
 export default function SearchPage() {
   const [selectedType, setSelectedType] = useState('Artist');
@@ -33,6 +34,9 @@ export default function SearchPage() {
 
   return (
     <View style={styles.container}>
+      <TopNavigation />
+
+      <View style={styles.form}>
       {renderOption('Artist')}
       {renderOption('Illustration')}
       {renderOption('Novel')}
@@ -56,16 +60,21 @@ export default function SearchPage() {
       <TouchableOpacity style={styles.searchBtn} onPress={search}>
         <Text style={styles.searchBtnText}>Search</Text>
       </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    paddingTop: 50,
+    // padding: 20,
+    // paddingTop: 50,
     backgroundColor: '#fff',
     flex: 1,
+  },
+  form: {
+    padding: 20,
+    paddingTop: 30,
   },
   radioOption: {
     flexDirection: 'row',

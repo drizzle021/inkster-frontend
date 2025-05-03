@@ -1,78 +1,95 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import TopNavigation from './components/top_navigation';
 import BottomNavigation from './components/navigation';
 import { useRouter } from 'expo-router';
+import { useSelectedPost } from './contexts/selectedPostContext';
+import { apiFetch } from './api';
 
 const issues = [
-  'Hate',
-  'Abuse & harassment',
-  'Violent Speech',
-  'Privacy',
-  'Spam',
-  'Impersonation',
+  'HATE',
+  'ABUSE',
+  'VIOLENT_SPEECH',
+  'PRIVACY',
+  'SPAM',
+  'IMPERSONATION',
 ];
 
 export default function SubmitReport() {
-    const router = useRouter();
-    const [selectedIssue, setSelectedIssue] = useState('Hate');
-    const [description, setDescription] = useState('');
+  const router = useRouter();
+  const { selectedPost } = useSelectedPost();
+  
+  const [selectedIssue, setSelectedIssue] = useState('HATE');
+  const [description, setDescription] = useState('');
 
-    const handleSubmit = () => {
-        console.log('Submitted Report:', { selectedIssue, description });
-        router.push('../home');
-    };
+  const handleSubmit = async () => {
+    if (!selectedPost) {
+      Alert.alert('Error', 'No post selected to report.');
+      return;
+    }
 
-    return (
-        <View style={styles.container}>
-        <TopNavigation />
+    try {
+      const formData = new FormData();
+      formData.append('report_type', selectedIssue);
+      formData.append('description', description.trim());
+      console.log(selectedPost.id)
+      await apiFetch(`/posts/report/${selectedPost.id}`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <Text style={styles.label}>Issue:</Text>
+      Alert.alert('Success', 'Report submitted successfully.');
+      router.push('/home');
+    } catch (error) {
+      console.error('Failed to submit report:', error);
+      Alert.alert('Error', 'Failed to submit report. Please try again.');
+    }
+  };
 
-            <View style={styles.optionsContainer}>            
-                {issues.map((issue) => (
-                <TouchableOpacity
-                    key={issue}
-                    style={styles.radioContainer}
-                    onPress={() => setSelectedIssue(issue)}
-                >
-                    <View style={styles.outerCircle}>
-                    {selectedIssue === issue && <View style={styles.innerCircle} />}
-                    </View>
-                    <Text style={styles.radioText}>{issue}</Text>
-                </TouchableOpacity>
-                ))}
+  return (
+    <View style={styles.container}>
+      <TopNavigation />
 
-            </View>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Text style={styles.label}>Issue:</Text>
 
-            <Text style={styles.label}>Report description:</Text>
-            <TextInput
-            style={styles.textArea}
-            placeholder="Enter description..."
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            />
-
-            <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-                    <Text style={styles.submitText}>Submit</Text>
-                </TouchableOpacity>
-            </View>
-            
-        </ScrollView>
-
-        <BottomNavigation />
+        <View style={styles.optionsContainer}>
+          {issues.map((issue) => (
+            <TouchableOpacity
+              key={issue}
+              style={styles.radioContainer}
+              onPress={() => setSelectedIssue(issue)}
+            >
+              <View style={styles.outerCircle}>
+                {selectedIssue === issue && <View style={styles.innerCircle} />}
+              </View>
+              <Text style={styles.radioText}>{issue.replace('_', ' ')}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
-    );
+
+        <Text style={styles.label}>Report description:</Text>
+        <TextInput
+          style={styles.textArea}
+          placeholder="Enter description..."
+          value={description}
+          onChangeText={setDescription}
+          multiline
+        />
+
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+            <Text style={styles.submitText}>Submit</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      <BottomNavigation />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -117,6 +134,7 @@ const styles = StyleSheet.create({
   },
   radioText: {
     fontSize: 15,
+    textTransform: 'capitalize',
   },
   textArea: {
     borderColor: '#aaa',
@@ -138,7 +156,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: 'center',
     marginTop: 20,
-    width: 100,
+    width: 120,
   },
   submitText: {
     color: '#fff',
