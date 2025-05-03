@@ -1,74 +1,119 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TextInput, Image, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import ActionSheet from 'react-native-actions-sheet';
 import { SheetManager } from 'react-native-actions-sheet';
 import { useRouter } from 'expo-router';
 import Icon from 'react-native-vector-icons/Feather';
 import { KeyboardAvoidingView, Platform } from 'react-native';
+import { useSelectedPost } from '../contexts/selectedPostContext';
+import { apiFetch, getUserProfileImageUrl } from '../api';
 
-const comments = [
-  { id: '1', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
-  { id: '2', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
-  { id: '3', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
-  { id: '4', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
-  { id: '5', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
-  { id: '6', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
-  { id: '7', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
-  { id: '8', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
+// const comments = [
+//   { id: '1', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
+//   { id: '2', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
+//   { id: '3', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
+//   { id: '4', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
+//   { id: '5', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
+//   { id: '6', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
+//   { id: '7', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
+//   { id: '8', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
 
-];
+// ];
 
 type Comment = {
-  id: string;
-  name: string;
-  time: string;
-  text: string;
+  id: number;
+  content: string;
+  author: {
+    id: number;
+    username: string;
+    profile_picture: string;
+    date_joined: string;
+  };
+  created_at: string;
 };
 
 export default function OpenCommentsSheet() {
   const router = useRouter();
-  
+  const { selectedPost } = useSelectedPost();
 
   const [newComment, setNewComment] = useState('');               // holds current input
   const [newComments, setNewComments] = useState<Comment[]>([]);  // holds new comment objects
   
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const fetchComments = async () => {
+      if (!selectedPost) return;
+
+      try {
+        const data = await apiFetch<Comment[]>(`/posts/comments/${selectedPost.id}`);
+        setComments(data.data);
+        console.log(data)
+      } catch (error) {
+        console.error('Failed to load comments:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchComments();
+  }, [selectedPost]);
+
   const openProfile = async () => {
     await SheetManager.hide('comments-sheet');
     router.push('../profile');
   };
   
-  const handleSendComment = () => {
-    if (!newComment.trim()) return;
+  const handleSendComment = async () => {
+    if (!newComment.trim() || !selectedPost) return;
   
-    const newCommentObject: Comment = {
-      id: Date.now().toString(),
-      name: 'You',
-      time: 'Just now',
-      text: newComment.trim(),
-    };
+    try {
+      const formData = new FormData();
+      formData.append('content', newComment.trim());
   
-    setNewComments([newCommentObject, ...newComments]);
-    setNewComment('');
-  };  
+      await apiFetch(`/posts/comments/${selectedPost.id}`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data', // because you're using request.form.get()
+        },
+      });
+  
+      // After posting, refetch comments to update list
+      const updatedComments = await apiFetch<Comment[]>(`/posts/comments/${selectedPost.id}`);
+      setComments(updatedComments.data);
+      setNewComment(''); // Clear input box
+  
+    } catch (error) {
+      console.error('Failed to send comment:', error);
+    }
+  };
+  
   
   const renderComment = ({ item }: { item: Comment }) => (
     <View style={styles.commentRow}>
       <TouchableOpacity onPress={openProfile}>
-        <View>
-          <Image source={require('../../assets/images/penguin.png')} style={styles.avatar} />
-        </View>
+        <Image
+          source={item.author.profile_picture
+            ? { uri: getUserProfileImageUrl(item.author.id) }
+            : require('../../assets/images/penguin.png')
+          }
+          style={styles.avatar}
+        />
       </TouchableOpacity>
       <View style={styles.commentContent}>
         <View style={styles.commentHeader}>
           <TouchableOpacity onPress={openProfile}>
-            <Text style={styles.commentName}>{item.name}</Text>
+            <Text style={styles.commentName}>{item.author.username}</Text>
           </TouchableOpacity>
-          <Text style={styles.commentTime}>{item.time}</Text>
+          <Text style={styles.commentTime}>{item.created_at}</Text>
         </View>
-        <Text style={styles.commentText}>{item.text}</Text>
+        <Text style={styles.commentText}>{item.content}</Text>
       </View>
     </View>
   );
+  
 
   return (
     <ActionSheet
@@ -92,7 +137,7 @@ export default function OpenCommentsSheet() {
             <FlatList
               data={[...newComments, ...comments]}
               renderItem={renderComment}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item) => item.id.toString()}
               showsVerticalScrollIndicator={false}
               style={styles.commentList}
               scrollEnabled={true}
@@ -100,6 +145,7 @@ export default function OpenCommentsSheet() {
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ paddingBottom: 20 }}
             />
+
           </View>
 
           <View style={styles.inputContainer}>
@@ -125,7 +171,7 @@ const styles = StyleSheet.create({
     // padding: 12,
     // height: '90%',
     flex: 1,
-    justifyContent: 'space-between',
+    // justifyContent: 'space-between',
     backgroundColor: '#fff',
   },
   commentContainer: {
@@ -168,8 +214,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   inputContainer: {
-    // position: 'relative',
-    // bottom: -5,
+    position: 'relative',
+    bottom: -90,
     // left: 12,
     // right: 12,
     backgroundColor: '#f0f0f0',
@@ -178,7 +224,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 15,
     paddingVertical: 8,
-    marginBottom: 10,
+    justifyContent: 'flex-end',
+    // marginBottom: 10,
     // position: 'fixed',
     // bottom: '-15%'
   },

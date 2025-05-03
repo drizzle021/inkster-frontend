@@ -2,10 +2,11 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SheetManager } from 'react-native-actions-sheet';
+import { useSelectedUser } from '../contexts/selectedUserContext';
 
 const BottomNavigation = () => {
   const router = useRouter();
-
+  const { setSelectedUser } = useSelectedUser();
 
   const openHome = async () => {
     router.push('../home');
@@ -24,6 +25,7 @@ const BottomNavigation = () => {
   };
 
   const openProfile = async () => {
+    setSelectedUser(null);
     router.push('../profile');
   };
 

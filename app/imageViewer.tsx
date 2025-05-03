@@ -1,120 +1,305 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList,
   Dimensions, TouchableOpacity, Image,
-  ScrollView, NativeSyntheticEvent, NativeScrollEvent
+  NativeSyntheticEvent, NativeScrollEvent, ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useRouter } from 'expo-router';
+import { useSelectedPost } from './contexts/selectedPostContext';
+import FastImage from 'react-native-fast-image';
+import { apiFetch, getImageUrl } from './api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SheetManager } from 'react-native-actions-sheet';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
+
 
 const screenHeight = Dimensions.get('window').height;
 const screenWidth = Dimensions.get('window').width;
 
-const hardcodedImages = [
-  require('../assets/images/bing.png'),
-  require('../assets/images/penguin.png'),
-];
-
 export default function ImageViewer() {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollRef = useRef<ScrollView>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const { selectedPost } = useSelectedPost();
+  const { setSelectedPost } = useSelectedPost();
+  const flatListRef = useRef<FlatList>(null);
+  const [images, setImages] = useState<{ uri: string }[]>([]);
+
+  const [likedPost, setLikedPost] = useState(selectedPost?.is_liked);
+  const [likeCount, setLikeCount] = useState(selectedPost?.likes);
+  const [savedPost, setSavedPost] = useState(selectedPost?.is_saved);
+
+  useEffect(() => {
+    const loadTokenAndImages = async () => {
+      const storedToken = await AsyncStorage.getItem('token');
+      setToken(storedToken);
+
+      if (selectedPost?.images?.length) {
+        const builtImages = selectedPost.images.map((img: { position: number }) => ({
+          uri: getImageUrl(Number(selectedPost.id), img.position),
+        }));
+        setImages(builtImages);
+      } else {
+        setImages([{ uri: Image.resolveAssetSource(require('../assets/images/penguin.png')).uri }]);
+      }
+    };
+
+    loadTokenAndImages();
+  }, [selectedPost]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const index = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
     setCurrentIndex(index);
   };
 
-  return (
-    <ScrollView
-      ref={scrollRef}
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      scrollEventThrottle={16}
-    >
-      {/* Image Viewer */}
-      <FlatList
-        data={hardcodedImages}
-        horizontal
-        pagingEnabled
-        keyExtractor={(_, i) => i.toString()}
-        showsHorizontalScrollIndicator={false}
-        onScroll={handleScroll}
-        renderItem={({ item }) => (
-          <Image source={item} style={styles.image} resizeMode="contain" />
-        )}
-      />
+  const handleLike = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        console.error('No token found');
+        router.push('/auth/login');
+        return;
+      }
+  
+      await apiFetch(`/posts/like/${selectedPost?.id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      setLikedPost((prev) => {
+        const newLikedState = !prev;
+        setLikeCount((count) => (count || 0) + (newLikedState ? 1 : -1));
+        return newLikedState;
+      });
+      
+    } catch (err: any) {
+      console.error('Failed to like post:', err.message || err);
+    }
+  };
 
-      {/* Slide-up Details */}
+  const handleSave = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        console.error('No token found');
+        router.push('/auth/login');
+        return;
+      }
+
+      await apiFetch(`/posts/save/${selectedPost?.id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      console.log('Saved post:', selectedPost?.id);
+      setSavedPost(!savedPost);
+    } catch (err: any) {
+      console.error('Failed to save post:', err.message || err);
+    }
+  };
+
+
+
+
+  if (!selectedPost || !token || images.length === 0) {
+    return (
+      <View style={styles.centeredContainer}>
+        <Text style={styles.errorText}>Loading...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      {/* FastImage horizontal carousel */}
+      <View style={styles.imageWrapper}>
+        <FlatList
+          ref={flatListRef}
+          data={images}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(_, index) => index.toString()}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          renderItem={({ item }) => (
+            <FastImage
+              source={{
+                uri: item.uri,
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                priority: FastImage.priority.normal,
+              }}
+              style={styles.image}
+              resizeMode={FastImage.resizeMode.contain}
+            />
+          )}
+        />
+
+        {/* Image Count Overlay */}
+        <Text style={styles.imageCount}>
+          {images.length > 0 ? `${currentIndex + 1}/${images.length}` : '0/0'}
+        </Text>
+
+        {/* Close Button */}
+        <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+          <Icon name="x" size={28} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Details Section */}
       <View style={styles.detailsContainer}>
         <View style={styles.handleBar} />
 
         <View style={styles.userRow}>
-          <Image source={require('../assets/images/penguin.png')} style={styles.avatar} />
-          <Text style={styles.username}>Name</Text>
-          <Icon name="message-circle" size={20} style={styles.icon} />
-          <Text style={styles.stat}>500</Text>
-          <Icon name="heart" size={20} style={styles.icon} />
-          <Text style={styles.stat}>2.8k</Text>
+          <View style={styles.userInfo}>
+            {selectedPost.author?.profile_picture ? (
+              <Image
+                source={{ uri: `../assets/images/penguin.png` }}
+                style={styles.avatar}
+              />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: '#7B61FF' }]} />
+            )}
+            <Text style={styles.username}>{selectedPost.author?.username || 'Unknown User'}</Text>
+          </View>
+
+
+          <View style={styles.rightActions}>
+            <View style={styles.actions}>
+            <Text style={{ marginRight: 8 }}>{likeCount}</Text>
+              <TouchableOpacity onPress={handleLike}>
+                <FontAwesome
+                  name={likedPost ? 'heart' : 'heart-o'}
+                  size={24}
+                  color={likedPost ? 'red' : 'black'}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.commentIcon}
+                onPress={() => SheetManager.show('comments-sheet')}>
+                <Icon name="message-circle" size={24} />
+              </TouchableOpacity>
+              {/* <Icon name="more-horizontal" size={25} style={styles.swipeIcon} /> */}
+              <TouchableOpacity
+                style={styles.commentIcon}
+                onPress={handleSave}>
+                <FontAwesome
+                  name={savedPost ? 'bookmark' : 'bookmark-o'}
+                  size={24}
+                  color={savedPost ? '#7B61FF' : 'black'}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.menuIconContainer}
+              onPress={() => {
+                setSelectedPost(selectedPost);
+                SheetManager.show('post-actions', {
+                  payload: {
+                    // onDeletePost,
+                  }
+                });
+              }}
+            >
+              <Icon name="more-vertical" size={24} color="gray" />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <Text style={styles.title}>Post Name</Text>
+
+
+
+
+        <Text style={styles.title}>
+          {selectedPost.title || 'Untitled Post'}
+        </Text>
+
         <Text style={styles.description}>
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.
+          {selectedPost.caption || 'No caption provided.'}
         </Text>
-        <Text style={styles.timestamp}>8m ago</Text>
+
+        <Text style={styles.description}>
+          <Text style={{ fontWeight: 'bold' }}>Description: </Text>
+          {selectedPost.description || 'No description available.'}
+        </Text>
+
+        <Text style={styles.timestamp}>
+          {selectedPost.created_at ? new Date(selectedPost.created_at).toLocaleString() : 'Unknown date'}
+        </Text>
+
         <Text style={styles.software}>
-          <Text style={{ fontWeight: 'bold' }}>Software:</Text> Clip Studio Paint
+          <Text style={{ fontWeight: 'bold' }}>Software: </Text>
+          {selectedPost.software || 'No software mentioned'}
         </Text>
-        <Text style={styles.tags}>
-          <Text style={styles.tag}>#lorem </Text>
-          <Text style={styles.tag}>#ipsum </Text>
-          <Text style={styles.tag}>#dolor </Text>
-          <Text style={styles.tag}>#sit </Text>
-          <Text style={styles.tag}>#amet</Text>
-        </Text>
+
+        <View style={styles.tagsContainer}>
+          {selectedPost.tags && selectedPost.tags.length > 0 ? (
+            selectedPost.tags.map((tag: string, index: number) => (
+              <Text key={index} style={styles.tag}>#{tag} </Text>
+            ))
+          ) : (
+            <Text style={styles.tag}>#NoTags</Text>
+          )}
+        </View>
       </View>
-
-      <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
-        <Icon name="x" size={28} color="#fff" />
-      </TouchableOpacity>
-
-      <Text style={styles.imageCount}>
-        {currentIndex + 1}/{hardcodedImages.length}
-      </Text>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
+  container: { 
+    flex: 1, 
+    backgroundColor: '#000' 
   },
-  image: {
-    width: screenWidth,
-    height: screenHeight,
+  centeredContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: '#000' 
   },
-  closeButton: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    zIndex: 10,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 10,
+  },
+  errorText: { 
+    color: 'white', 
+    fontSize: 18, 
+    marginBottom: 12 
+  },
+  imageWrapper: { 
+    width: screenWidth, 
+    height: screenHeight 
+  },
+  image: { 
+    width: screenWidth, 
+    height: screenHeight 
+  },
+  closeButton: { 
+    position: 'absolute', 
+    top: 50, 
+    right: 20, 
+    zIndex: 10 
   },
   imageCount: {
     position: 'absolute',
     bottom: 30,
     alignSelf: 'center',
     color: '#fff',
-    fontSize: 16,
     backgroundColor: 'rgba(0,0,0,0.5)',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
+    fontSize: 16,
   },
   detailsContainer: {
     backgroundColor: '#fff',
-    marginTop: -100,
+    marginTop: -20,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -128,53 +313,71 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginBottom: 15,
   },
-  userRow: {
-    flexDirection: 'row',
+  menuIconContainer: {
+    paddingLeft: 10,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
   },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 10,
-  },
-  username: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginRight: 10,
-  },
-  icon: {
+  actions: {
+    flexDirection: 'row', 
+    alignItems: 'center', 
     marginLeft: 10,
   },
-  stat: {
-    marginLeft: 5,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  description: {
-    fontSize: 14,
-    color: '#444',
-    marginBottom: 4,
-  },
-  timestamp: {
-    fontSize: 12,
-    color: 'gray',
-    marginBottom: 10,
-  },
-  software: {
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  tags: {
+  userInfo: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
   },
-  tag: {
-    color: '#7B61FF',
-    fontSize: 14,
+  
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  commentIcon: {
+    marginLeft: 16,
+  },
+  userRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center',
+    justifyContent: 'space-between', 
+    marginBottom: 15,
+    paddingHorizontal: 10,
+  },
+  avatar: { 
+    width: 32, 
+    height: 32, 
+    borderRadius: 16, 
+    marginRight: 10 
+  },
+  username: { 
+    fontWeight: 'bold', 
+    fontSize: 16, 
+    marginRight: 10 
+  },
+  title: { 
+    fontSize: 18, 
+    fontWeight: '600', 
+    marginBottom: 8 
+  },
+  description: { 
+    fontSize: 14, 
+    color: '#444', 
+    marginBottom: 4 
+  },
+  timestamp: { 
+    fontSize: 12, 
+    color: 'gray', 
+    marginBottom: 10 
+  },
+  software: { 
+    fontSize: 14, 
+    marginBottom: 8 
+  },
+  tagsContainer: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap' 
+  },
+  tag: { 
+    color: '#7B61FF', 
+    fontSize: 14 
   },
 });

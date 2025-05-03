@@ -4,11 +4,20 @@ import BottomNavigation from './components/navigation';
 import TopNavigation from './components/top_navigation';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Icon from 'react-native-vector-icons/Feather';
-import { Dimensions } from 'react-native';
+import { Dimensions, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiFetch } from './api';
 
 const screenWidth = Dimensions.get('window').width;
+const softwares = [
+  'Photoshop',
+  'Clip Studio Paint',
+  'Krita',
+  'Procreate',
+  'MS Paint',
+];
+
 
 export default function AddPost() {
   const { postType } = useLocalSearchParams<{ postType?: string }>();
@@ -21,77 +30,101 @@ export default function AddPost() {
   // const selectedImages = images ? JSON.parse(images as string) : [];
 
 
+  const [selectedSoftware, setSelectedSoftware] = useState('');
+  const [showSoftwareOptions, setShowSoftwareOptions] = useState(false);
+
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
   const [tags, setTags] = useState('');
   const [altText, setAltText] = useState('');
   const [spoiler, setSpoiler] = useState(false);
 
+  const pickImages = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsMultipleSelection: true,
+      mediaTypes: 'images',
+      quality: 1,
+      selectionLimit: 10,
+    });
+  
+    if (!result.canceled && result.assets.length > 0) {
+      setImages(result.assets);
+    } else {
+      router.back();
+    }
+  };
+
 
   useEffect(() => {
-    (async () => {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        allowsMultipleSelection: true,
-        mediaTypes: 'images',
-        quality: 1,
-        selectionLimit: 10,
-      });
-
-      if (!result.canceled && result.assets.length > 0) {
-        setImages(result.assets);
-      } else {
-        router.back(); // go back if user cancels
-      }
-    })();
+    pickImages();
   }, []);
 
   const submitPost = async () => {
-    const token = await AsyncStorage.getItem('token');
-    const formData = new FormData();
-    console.log(resolvedPostType)
-    formData.append('title', title);
-    formData.append('caption', caption);
-    formData.append('description', altText);
-    formData.append('is_spoilered', spoiler.toString());
-    formData.append('software', 'Procreate'); // or a value from the software picker
-    formData.append('post_type', resolvedPostType);
-    
-    // Parse tags string into a list
-    tags.split(',').map(tag => tag.trim()).forEach(tag => {
-      formData.append('tag_list', tag);
-    });
-  
-    // Append image files
-    images.forEach((img, index) => {
-      formData.append('images', {
-        uri: img.uri,
-        name: `image_${index}.jpg`,
-        type: 'image/jpeg',
-      } as any); 
-    });
-  
     try {
-      const res = await fetch('http://localhost:5000/posts', {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        throw new Error('No token found');
+      }
+  
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('caption', caption);
+      formData.append('description', altText);
+      formData.append('is_spoilered', spoiler.toString());
+      formData.append('software', 'Procreate');
+      formData.append('post_type', resolvedPostType);
+      formData.append('software', selectedSoftware);
+
+      // Parse tags string into multiple form entries
+      tags.split(',').map(tag => tag.trim()).forEach(tag => {
+        formData.append('tag_list', tag);
+      });
+  
+      // Append image files
+      images.forEach((img, index) => {
+        const uriParts = img.uri.split('.');
+        const fileType = uriParts[uriParts.length - 1];
+      
+        formData.append('images', {
+          uri: img.uri,
+          name: `image_${index}.${fileType}`,
+          type: `image/${fileType}`,
+        } as any);
+      });
+  
+      const res = await apiFetch('/posts', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          // 'Content-Type': 'multipart/form-data',
         },
         body: formData,
       });
-  
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create post');
-      
-      console.log('Post success:', data);
+
+      console.log('STATUS ', res.status)
+      console.log('Post success:', res.data);
       router.push('/profile');
-    } catch (err) {
-      if (err instanceof Error) {
-        alert('Error creating post: ' + err.message);
+    } catch (err: any) {
+      const errorText = err?.error || err?.message || '';
+    
+      if (typeof errorText === 'string' && errorText.toLowerCase().includes('file size exceeds the limit')) {
+        Alert.alert(
+          'Image too large',
+          'One or more selected images exceed the size limit. Please choose smaller images.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                pickImages();
+              },
+            },
+          ],
+          { cancelable: false }
+        );
       } else {
-        alert('An unknown error occurred');
+        alert('Error creating post: ' + errorText);
       }
     }
+    
   };
   
 
@@ -169,10 +202,37 @@ export default function AddPost() {
             <Text style={styles.switchLabel}>Spoiler/NSFW</Text>
           </View>
 
-          <TouchableOpacity style={styles.softwareRow}>
-            <Text style={styles.softwareText}>Software</Text>
-            <Icon name="chevron-right" size={20} />
-          </TouchableOpacity>
+          <View>
+            <TouchableOpacity
+              style={styles.softwareRow}
+              onPress={() => setShowSoftwareOptions(!showSoftwareOptions)}
+            >
+              <Text style={styles.softwareText}>Software: {selectedSoftware}</Text>
+              <Icon name={showSoftwareOptions ? 'chevron-up' : 'chevron-down'} size={20} />
+            </TouchableOpacity>
+
+            {showSoftwareOptions && (
+              <View style={styles.softwareDropdown}>
+                {softwares.map((software) => (
+                  <TouchableOpacity
+                    key={software}
+                    style={styles.radioContainer}
+                    onPress={() => {
+                      setSelectedSoftware(software);
+                      // setShowSoftwareOptions(false);
+                    }}
+                  >
+                    <View style={styles.outerCircle}>
+                      {selectedSoftware === software && <View style={styles.innerCircle} />}
+                    </View>
+                    <Text style={styles.radioText}>{software.replace('_', ' ')}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
+
 
           <TouchableOpacity style={styles.postButton} onPress={submitPost}>
             <Text style={styles.postButtonText}>Post</Text>
@@ -279,4 +339,52 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  optionsContainer: {
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+    paddingLeft: 10,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 4,
+  },
+  radioContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  // optionsContainer: {
+  //   flex: 1,
+  //   marginLeft: 20,
+  // },
+  outerCircle: {
+    height: 20,
+    width: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  innerCircle: {
+    height: 10,
+    width: 10,
+    borderRadius: 5,
+    backgroundColor: '#000',
+  },
+  radioText: {
+    fontSize: 15,
+    textTransform: 'capitalize',
+  },
+  softwareDropdown: {
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 4,
+    padding: 10,
+    zIndex: 100,
+
+  }
 });

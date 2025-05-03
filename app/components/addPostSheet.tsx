@@ -56,9 +56,6 @@ export default function AddPostSheet() {
             <TouchableOpacity style={styles.option} onPress={() => addPost('NOVEL')}>
             <Text style={styles.optionText}>Novel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.option}>
-            <Text style={styles.optionText}>⋮⋮⋮</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={styles.cancel} onPress={closeSheet}>
             <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
