@@ -3,10 +3,18 @@ import { Link, useRouter } from 'expo-router'
 import React, { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch } from '../api';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function Login() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
+  // const colorScheme = useColorScheme();
+  // const styles = colorScheme === 'dark' ? darkStyles : lightStyles;
+
+  const { theme } = useTheme();
+  const styles = theme === 'dark' ? darkStyles : lightStyles;
+  const iconSource = theme === 'dark'
+    ? require('../../assets/images/splash-icon-dark.png')
+    : require('../../assets/images/splash-icon.png');
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,10 +49,7 @@ export default function Login() {
   
 
   
-  const styles = colorScheme === 'dark' ? darkStyles : lightStyles;
-  const iconSource = colorScheme === 'dark'
-    ? require('../../assets/images/splash-icon-dark.png')
-    : require('../../assets/images/splash-icon.png');
+
 
   return (
     <View style={styles.container}>

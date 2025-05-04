@@ -4,9 +4,15 @@ import { useNavigation } from '@react-navigation/native';
 import React, { useState, useCallback } from 'react';
 import { apiFetch } from '../api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function Register() {
   const router = useRouter();
+  const { theme } = useTheme();
+  const styles = theme === 'dark' ? darkStyles : lightStyles;
+  const iconSource = theme === 'dark'
+    ? require('../../assets/images/splash-icon-dark.png')
+    : require('../../assets/images/splash-icon.png');
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -55,7 +61,7 @@ export default function Register() {
 
   return (
     <View style={styles.container}>
-        <Image source={require('../../assets/images/splash-icon-dark.png')} style={styles.icon} />
+        <Image source={iconSource} style={styles.icon} />
         <View style={styles.formContainer}>
           <View style={styles.inputGroup}>
               <Text style={styles.label}>Username</Text>
@@ -101,47 +107,91 @@ export default function Register() {
 );
 }
 
-const styles = StyleSheet.create({
-container: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    backgroundColor: '#000',
-},
-icon: {
-    width: 300,
-    height: 100,
-    alignSelf: 'center',
-    marginBottom: 100,
-},
-formContainer: {
-    backgroundColor: '#FFF',
-    padding: 20,
-    borderRadius: 30,
-    marginHorizontal: 20,
-},
-inputGroup: {
-  marginBottom: 12,
-},
-label: {
-  fontSize: 16,
-  marginBottom: 4,
-},
-input: {
-    height: 40,
+const lightStyles = StyleSheet.create({
+  container: {
+      flex: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 16,
+      backgroundColor: '#FFF',
+  },
+  icon: {
+      width: 300,
+      height: 100,
+      alignSelf: 'center',
+      marginBottom: 100,
+  },
+  formContainer: {
+      backgroundColor: '#EEE',
+      padding: 20,
+      borderRadius: 30,
+      marginHorizontal: 20,
+  },
+  inputGroup: {
     marginBottom: 12,
-    paddingHorizontal: 8,
-    borderRadius: 5,
-    backgroundColor: '#EEEEEE'
-},
+  },
+  label: {
+    fontSize: 16,
+    marginBottom: 4,
+    color: '#000',
+  },
+  input: {
+      height: 40,
+      marginBottom: 12,
+      paddingHorizontal: 8,
+      borderRadius: 5,
+      backgroundColor: '#FFF',
+  },
+  registerLink: {
+      marginTop: 15,
+      alignSelf: 'center',
+  },
+  registerText: {
+      color: '#000',
+      textDecorationLine: 'underline',
+  },
+});
 
-registerLink: {
-    marginTop: 15,
-    alignSelf: 'center',
-},
-registerText: {
-    color: '#FFF',
-    textDecorationLine: 'underline',
-},
+const darkStyles = StyleSheet.create({
+  container: {
+      flex: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 16,
+      backgroundColor: '#000',
+  },
+  icon: {
+      width: 300,
+      height: 100,
+      alignSelf: 'center',
+      marginBottom: 100,
+  },
+  formContainer: {
+      backgroundColor: '#FFF',
+      padding: 20,
+      borderRadius: 30,
+      marginHorizontal: 20,
+  },
+  inputGroup: {
+    marginBottom: 12,
+  },
+  label: {
+    fontSize: 16,
+    marginBottom: 4,
+    color: '#000',
+  },
+  input: {
+      height: 40,
+      marginBottom: 12,
+      paddingHorizontal: 8,
+      borderRadius: 5,
+      backgroundColor: '#EEEEEE',
+  },
+  registerLink: {
+      marginTop: 15,
+      alignSelf: 'center',
+  },
+  registerText: {
+      color: '#FFF',
+      textDecorationLine: 'underline',
+  },
 });
   
