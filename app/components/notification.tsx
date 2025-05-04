@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
+import { useTheme } from '../contexts/ThemeContext';
 
 type Props = {
   visible: boolean;

@@ -4,10 +4,16 @@ import ActionSheet from 'react-native-actions-sheet';
 import { SheetManager } from 'react-native-actions-sheet';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { useTheme } from '../contexts/ThemeContext';
+import { useSelectedPost } from '../contexts/selectedPostContext';
 
 export default function AddPostSheet() {
     const router = useRouter();
+    const { setSelectedPost } = useSelectedPost();
     
+    const { theme } = useTheme();
+    const styles = theme === 'dark' ? darkStyles : lightStyles;
+
     const closeSheet = () => {
       SheetManager.hide('add-post-sheet');
     };
@@ -40,7 +46,8 @@ export default function AddPostSheet() {
 
     const addPost = (postType: 'ILLUSTRATION' | 'NOVEL') => {
       SheetManager.hide('add-post-sheet');
-      console.log("POST TYPE: ", postType)
+      console.log("POST TYPE: ", postType);
+      setSelectedPost(null);
       router.push({
         pathname: '../addPost',
         params: { postType },
@@ -64,7 +71,7 @@ export default function AddPostSheet() {
     );
 }
 
-const styles = StyleSheet.create({
+const lightStyles = StyleSheet.create({
   sheet: {
     padding: 20,
     alignItems: 'center',
@@ -97,5 +104,42 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#000',
+  },
+});
+
+const darkStyles = StyleSheet.create({
+  sheet: {
+      padding: 20,
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: '#000'
+  },
+  option: {
+      paddingVertical: 12,
+      paddingHorizontal: 40,
+      borderRadius: 8,
+      width: '100%',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: '#555',
+  },
+  optionText: {
+      fontSize: 16,
+      color: '#7B61FF',
+      fontWeight: '600',
+  },
+  cancel: {
+      marginTop: 8,
+      backgroundColor: '#333', 
+      paddingVertical: 12,
+      paddingHorizontal: 40,
+      borderRadius: 8,
+      width: '100%',
+      alignItems: 'center',
+  },
+  cancelText: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: '#eee', 
   },
 });

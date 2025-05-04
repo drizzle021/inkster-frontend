@@ -7,18 +7,10 @@ import Icon from 'react-native-vector-icons/Feather';
 import { KeyboardAvoidingView, Platform } from 'react-native';
 import { useSelectedPost } from '../contexts/selectedPostContext';
 import { apiFetch, getUserProfileImageUrl } from '../api';
-
-// const comments = [
-//   { id: '1', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
-//   { id: '2', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
-//   { id: '3', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
-//   { id: '4', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
-//   { id: '5', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
-//   { id: '6', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet,Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
-//   { id: '7', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
-//   { id: '8', name: 'Name', time: '8m ago', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.' },
-
-// ];
+import FastImage from 'react-native-fast-image';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSelectedUser } from '../contexts/selectedUserContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 type Comment = {
   id: number;
@@ -35,18 +27,30 @@ type Comment = {
 export default function OpenCommentsSheet() {
   const router = useRouter();
   const { selectedPost } = useSelectedPost();
-
-  const [newComment, setNewComment] = useState('');               // holds current input
-  const [newComments, setNewComments] = useState<Comment[]>([]);  // holds new comment objects
+  const { theme } = useTheme();
+  const styles = theme === 'dark' ? darkStyles : lightStyles;
+  const [newComment, setNewComment] = useState('');               
+  const [newComments, setNewComments] = useState<Comment[]>([]);  
   
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const [token, setToken] = useState<string | null>(null);
+  const [profileImageError, setProfileImageError] = useState(false);
+  const { setSelectedUser } = useSelectedUser();
+  const { setSelectedPost } = useSelectedPost();
+
   useEffect(() => {
     const fetchComments = async () => {
       if (!selectedPost) return;
 
       try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          console.error('No token found');
+          return;
+        }
+        setToken(token);
+
         const data = await apiFetch<Comment[]>(`/posts/comments/${selectedPost.id}`);
         setComments(data.data);
         console.log(data)
@@ -60,9 +64,25 @@ export default function OpenCommentsSheet() {
     fetchComments();
   }, [selectedPost]);
 
-  const openProfile = async () => {
-    await SheetManager.hide('comments-sheet');
-    router.push('../profile');
+  const openProfile = async (userId: number) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        console.error('No token found');
+        router.push('/auth/login');
+        return;
+      }
+
+      const user = await apiFetch(`/users/${userId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+  
+      setSelectedUser(user.data);
+      await SheetManager.hide('comments-sheet');
+      router.push('/profile');
+    } catch (err) {
+      console.error('Failed to load post details', err);
+    }
   };
   
   const handleSendComment = async () => {
@@ -76,11 +96,11 @@ export default function OpenCommentsSheet() {
         method: 'POST',
         body: formData,
         headers: {
-          'Content-Type': 'multipart/form-data', // because you're using request.form.get()
+          'Content-Type': 'multipart/form-data',
         },
       });
   
-      // After posting, refetch comments to update list
+
       const updatedComments = await apiFetch<Comment[]>(`/posts/comments/${selectedPost.id}`);
       setComments(updatedComments.data);
       setNewComment(''); // Clear input box
@@ -93,18 +113,24 @@ export default function OpenCommentsSheet() {
   
   const renderComment = ({ item }: { item: Comment }) => (
     <View style={styles.commentRow}>
-      <TouchableOpacity onPress={openProfile}>
-        <Image
-          source={item.author.profile_picture
-            ? { uri: getUserProfileImageUrl(item.author.id) }
-            : require('../../assets/images/penguin.png')
+      <TouchableOpacity onPress={() => openProfile(item.author.id)}>
+        <FastImage
+          source={
+            item.author?.profile_picture.includes('default')
+              ? require('../../assets/images/default.jpg')
+              : {
+                  uri: getUserProfileImageUrl(item.author.profile_picture),
+                  headers: token ? { Authorization: `Bearer ${token}` } : {},
+                  priority: FastImage.priority.normal,
+                }
           }
           style={styles.avatar}
+          // onError={() => setProfileImageError(true)}
         />
       </TouchableOpacity>
       <View style={styles.commentContent}>
         <View style={styles.commentHeader}>
-          <TouchableOpacity onPress={openProfile}>
+          <TouchableOpacity onPress={() => openProfile(item.author.id)}>
             <Text style={styles.commentName}>{item.author.username}</Text>
           </TouchableOpacity>
           <Text style={styles.commentTime}>{item.created_at}</Text>
@@ -166,12 +192,12 @@ export default function OpenCommentsSheet() {
   );
 }
 
-const styles = StyleSheet.create({
+const lightStyles = StyleSheet.create({
   container: {
     // padding: 12,
     // height: '90%',
     flex: 1,
-    // justifyContent: 'space-between',
+    justifyContent: 'space-between',
     backgroundColor: '#fff',
   },
   commentContainer: {
@@ -214,8 +240,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   inputContainer: {
-    position: 'relative',
-    bottom: -90,
+    // position: 'relative',
+    // bottom: -90,
     // left: 12,
     // right: 12,
     backgroundColor: '#f0f0f0',
@@ -224,8 +250,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 15,
     paddingVertical: 8,
-    justifyContent: 'flex-end',
-    // marginBottom: 10,
+    // justifyContent: 'flex-end',
+    margin: 10,
     // position: 'fixed',
     // bottom: '-15%'
   },
@@ -249,5 +275,87 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     marginRight: 10,
     marginLeft: 10,
+  },
+});
+
+const darkStyles = StyleSheet.create({
+  container: {
+      flex: 1,
+      justifyContent: 'space-between',
+      backgroundColor: '#000',
+  },
+  commentContainer: {
+      flex: 1,
+      paddingHorizontal: 10,
+      paddingTop: 12,
+  },
+  heading: {
+      fontSize: 18,
+      fontWeight: '600',
+      alignSelf: 'center',
+      marginBottom: 12,
+      color: '#eee',
+  },
+  commentList: {
+      flex: 1,
+  },
+  commentRow: {
+      flexDirection: 'row',
+      marginBottom: 16,
+  },
+
+  commentContent: {
+      flex: 1,
+  },
+  commentHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+  },
+  commentName: {
+      fontWeight: 'bold',
+      color: '#eee',
+  },
+  commentTime: {
+      fontSize: 12,
+      color: '#999',
+  },
+  commentText: {
+      marginTop: 2,
+      fontSize: 14,
+      color: '#eee',
+  },
+  inputContainer: {
+      backgroundColor: '#1a1a1a',
+      borderRadius: 25,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 15,
+      paddingVertical: 8,
+      margin: 10,
+  },
+  scrollContainer: {
+      flex: 1,
+      backgroundColor: '#000',
+  },
+  input: {
+      flex: 1,
+      fontSize: 14,
+      color: '#eee',
+      backgroundColor: '#1a1a1a',
+  },
+  sendButton: {
+      backgroundColor: '#7B61FF',
+      padding: 10,
+      borderRadius: 20,
+      marginLeft: 8,
+  },
+  avatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 18,
+      marginRight: 10,
+      marginLeft: 10,
+      borderColor: '#666',
+      borderWidth: 1
   },
 });

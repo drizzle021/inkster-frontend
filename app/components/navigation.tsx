@@ -3,9 +3,12 @@ import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SheetManager } from 'react-native-actions-sheet';
 import { useSelectedUser } from '../contexts/selectedUserContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 const BottomNavigation = () => {
   const router = useRouter();
+  const { theme } = useTheme(); 
+  const styles = theme === 'dark' ? darkStyles : lightStyles;
   const { setSelectedUser } = useSelectedUser();
 
   const openHome = async () => {
@@ -70,7 +73,7 @@ const BottomNavigation = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const lightStyles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -98,6 +101,36 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#000',
+  },
+});
+
+const darkStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    height: 60,
+    backgroundColor: '#000',
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+    position: 'relative',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  icon: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconImage: {
+    width: 25,
+    height: 25,
+    tintColor: '#eee', 
+  },
+  headerText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
   },
 });
 

@@ -17,8 +17,10 @@ interface PostType {
   likes: number;
   is_liked: boolean;
   is_saved: boolean;
+  is_spoilered: boolean;
   software: string;
   images?: { id: number; position: number; image_name: string }[];
+  thumbnail: string;
 }
 
 interface SelectedPostContextType {
