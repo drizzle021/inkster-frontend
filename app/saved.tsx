@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch, getImageUrl } from './api';
 import FastImage from 'react-native-fast-image';
 import { useSelectedPost } from './contexts/selectedPostContext';
+import { useTheme } from './contexts/ThemeContext';
 
 const SavedPostsScreen = () => {
     const router = useRouter();
@@ -14,6 +15,8 @@ const SavedPostsScreen = () => {
     const [activeTab, setActiveTab] = useState<'Illustration' | 'Novels'>('Illustration');
     const [token, setToken] = useState<string | null>(null);
     const { setSelectedPost } = useSelectedPost();
+    const { theme } = useTheme(); 
+    const styles = theme === 'dark' ? darkStyles : lightStyles;
 
   useEffect(() => {
     const fetchSavedPosts = async () => {
@@ -31,6 +34,7 @@ const SavedPostsScreen = () => {
         });
 
         setSavedPosts(posts.data);
+        console.log(savedPosts)
       } catch (err: any) {
         console.error('Error fetching saved posts:', err.message || err);
       }
@@ -54,6 +58,27 @@ const SavedPostsScreen = () => {
   
       setSelectedPost(post.data);
       router.push('/imageViewer');
+    } catch (err) {
+      console.error('Failed to load post details', err);
+    }
+  };
+
+  const openNovel = async (postId: number) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        console.error('No token found');
+        router.push('/auth/login');
+        return;
+      }
+  
+      const post = await apiFetch(`/posts/${postId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+  
+      setSelectedPost(post.data);
+      console.log(post.data)
+      router.push('/openedNovel');
     } catch (err) {
       console.error('Failed to load post details', err);
     }
@@ -107,12 +132,18 @@ const SavedPostsScreen = () => {
                       key={post.id}
                       style={styles.postItem}
                       activeOpacity={0.8}
-                      onPress={() => openImage(post.id)}
+                      onPress={() => {
+                        if (post.post_type === 'ILLUSTRATION') {
+                          openImage(post.id);
+                        } else if (post.post_type === 'NOVEL') {
+                          openNovel(post.id);
+                        }
+                      }}
                     >
                     <View style={styles.imageWrapper}>
                       <FastImage
                         source={{
-                          uri: post.images && post.images.length > 0 ? post.images[0] : getImageUrl(post.id),
+                          uri: getImageUrl(post.thumbnail),
                           headers: { Authorization: `Bearer ${token}` },
                           priority: FastImage.priority.normal,
                         }}
@@ -138,7 +169,7 @@ const SavedPostsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const lightStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   postType: {
     flexDirection: 'row',
@@ -205,6 +236,73 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
+});
+
+const darkStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000' },
+  postType: {
+    flexDirection: 'row',
+    marginBottom: 10,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  postGroup: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderColor: '#eee',
+  },
+  header: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#eee',
+  },
+  postsContainer: {
+    paddingHorizontal: 10,
+    paddingBottom: 20,
+  },
+  postRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  postItem: {
+    width: '48%',
+    aspectRatio: 1,
+    backgroundColor: '#333',
+    borderRadius: 10,
+  },
+  postImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 10,
+  },
+  imageWrapper: {
+    position: 'relative',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  spoilerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  spoilerText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  }
 });
 
 export default SavedPostsScreen;

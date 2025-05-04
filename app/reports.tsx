@@ -6,6 +6,7 @@ import Icon from 'react-native-vector-icons/AntDesign';
 import { useRouter } from 'expo-router';
 import { apiFetch } from './api';
 import { useSelectedReport } from './contexts/selectedReportContext';
+import { useTheme } from './contexts/ThemeContext';
 
 type Report = {
   id: number;
@@ -17,7 +18,8 @@ type Report = {
 const ReportsScreen = () => {
   const router = useRouter();
   const { setSelectedReportId } = useSelectedReport();
-
+  const { theme } = useTheme();
+  const styles = theme === 'dark' ? darkStyles : lightStyles;
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -72,7 +74,7 @@ const ReportsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const lightStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
@@ -108,6 +110,49 @@ const styles = StyleSheet.create({
   subText: {
     fontSize: 12,
     color: '#666',
+    marginTop: 2,
+  },
+});
+
+
+const darkStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  header: {
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 24,
+    marginTop: 20,
+    marginBottom: 10,
+    color: '#eee',
+  },
+  scrollContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    marginTop: 10,
+  },
+  optionButton: {
+    backgroundColor: '#333',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderColor: '#555',
+    borderWidth: 1
+  },
+  optionText: {
+    fontSize: 16,
+    color: '#eee',
+    fontWeight: 'bold',
+  },
+  subText: {
+    fontSize: 12,
+    color: '#999',
     marginTop: 2,
   },
 });

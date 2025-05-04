@@ -5,6 +5,7 @@ import BottomNavigation from './components/navigation';
 import { useRouter } from 'expo-router';
 import { useSelectedPost } from './contexts/selectedPostContext';
 import { apiFetch } from './api';
+import { useTheme } from './contexts/ThemeContext';
 
 const issues = [
   'HATE',
@@ -18,7 +19,8 @@ const issues = [
 export default function SubmitReport() {
   const router = useRouter();
   const { selectedPost } = useSelectedPost();
-  
+  const { theme } = useTheme();
+  const styles = theme === 'dark' ? darkStyles : lightStyles;
   const [selectedIssue, setSelectedIssue] = useState('HATE');
   const [description, setDescription] = useState('');
 
@@ -92,7 +94,7 @@ export default function SubmitReport() {
   );
 }
 
-const styles = StyleSheet.create({
+const lightStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
@@ -162,5 +164,81 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+});
+
+const darkStyles = StyleSheet.create({
+  container: {
+      flex: 1,
+      backgroundColor: '#000',
+  },
+  content: {
+      padding: 20,
+      paddingBottom: 40,
+  },
+  label: {
+      fontWeight: 'bold',
+      fontSize: 16,
+      marginBottom: 10,
+      marginTop: 10,
+      color: '#eee',
+  },
+  radioContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+  },
+  optionsContainer: {
+      flex: 1,
+      marginLeft: 20,
+  },
+  outerCircle: {
+      height: 20,
+      width: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: '#666',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 10,
+  },
+  innerCircle: {
+      height: 10,
+      width: 10,
+      borderRadius: 5,
+      backgroundColor: '#7B61FF',
+  },
+  radioText: {
+      fontSize: 15,
+      textTransform: 'capitalize',
+      color: '#eee',
+  },
+  textArea: {
+      borderColor: '#555',
+      borderWidth: 1,
+      borderRadius: 4,
+      padding: 10,
+      height: 100,
+      textAlignVertical: 'top',
+      marginTop: 6,
+      backgroundColor: '#333',
+      color: '#eee',
+  },
+  buttonContainer: {
+      flex: 1,
+      alignItems: 'center',
+  },
+  submitButton: {
+      backgroundColor: '#7B61FF',
+      paddingVertical: 12,
+      borderRadius: 6,
+      alignItems: 'center',
+      marginTop: 20,
+      width: 120,
+  },
+  submitText: {
+      color: '#000',
+      fontWeight: 'bold',
+      fontSize: 16,
   },
 });

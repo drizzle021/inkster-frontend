@@ -7,14 +7,18 @@ import OpenCommentsSheet from './components/openCommentsSheet';
 import { SelectedPostProvider } from './contexts/selectedPostContext';
 import { SelectedUserProvider } from './contexts/selectedUserContext';
 import { SelectedReportProvider } from './contexts/selectedReportContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import './sheets.tsx';
 
 export default function RootLayout() {
   return (
+    <ThemeProvider>
+    <SelectedPostProvider>
     <SheetProvider>
       <SelectedReportProvider>
       <SelectedUserProvider>
-      <SelectedPostProvider>
-        <PostActionsSheet />
+      
+        <PostActionsSheet sheetId='post-actions'/>
         <AddPostSheet />
         <OpenCommentsSheet />
         <Stack
@@ -32,9 +36,11 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="details" />
         </Stack>
-      </SelectedPostProvider>
+
       </SelectedUserProvider>
       </SelectedReportProvider>
     </SheetProvider>
+    </SelectedPostProvider>
+    </ThemeProvider>
   );
 }

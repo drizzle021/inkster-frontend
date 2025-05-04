@@ -3,12 +3,15 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import TopNavigation from './components/top_navigation';
+import { useTheme } from './contexts/ThemeContext';
 
 export default function SearchPage() {
   const [selectedType, setSelectedType] = useState('Artist');
   const [keywords, setKeywords] = useState('');
   const [tags, setTags] = useState('');
   const router = useRouter();
+  const { theme } = useTheme();
+  const styles = theme === 'dark' ? darkStyles : lightStyles;
 
   const search = async () => {
     router.push({
@@ -65,7 +68,7 @@ export default function SearchPage() {
   );
 }
 
-const styles = StyleSheet.create({
+const lightStyles = StyleSheet.create({
   container: {
     // padding: 20,
     // paddingTop: 50,
@@ -118,6 +121,66 @@ const styles = StyleSheet.create({
   },
   searchBtnText: {
     color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+});
+
+const darkStyles = StyleSheet.create({
+  container: {
+    backgroundColor: '#000',
+    flex: 1,
+  },
+  form: {
+    padding: 20,
+    paddingTop: 30,
+  },
+  radioOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#666',
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioSelected: {
+    backgroundColor: '#7B61FF',
+    borderColor: '#7B61FF',
+  },
+  radioLabel: {
+    fontSize: 16,
+    color: '#eee',
+  },
+  label: {
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 6,
+    color: '#eee',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#666',
+    padding: 10,
+    borderRadius: 4,
+    color: '#eee',
+    backgroundColor: '#333',
+  },
+  searchBtn: {
+    backgroundColor: '#7B61FF',
+    marginTop: 30,
+    paddingVertical: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  searchBtnText: {
+    color: '#000',
     fontWeight: 'bold',
     fontSize: 16,
   },

@@ -11,11 +11,12 @@ import { useRouter } from 'expo-router';
 import { SheetManager } from 'react-native-actions-sheet';
 import { TouchableWithoutFeedback } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiFetch, getImageUrl } from './api';
+import { apiFetch, getImageUrl, getUserProfileImageUrl } from './api';
 import { useSelectedPost } from './contexts/selectedPostContext';
 import { useSelectedUser } from './contexts/selectedUserContext';
 import FastImage from 'react-native-fast-image';
 import { BlurView } from 'expo-blur';
+import { useTheme } from './contexts/ThemeContext';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -26,7 +27,9 @@ const PostCarousel = ({images,onImageTap}: {
 }) => {
   const [index, setIndex] = useState(0);
   const screenWidth = Dimensions.get('window').width;
-
+  const { theme } = useTheme();
+  const styles = theme === 'dark' ? darkStyles : lightStyles;
+  
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const newIndex = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
     setIndex(newIndex);
@@ -57,36 +60,39 @@ const PostCarousel = ({images,onImageTap}: {
 };
 
 interface PostType {
-  id: string | number;
+  id: number;
   title: string;
   caption: string;
   post_type: string;
   created_at: string;
   author: {
+    id: number,
     username: string;
     profile_picture: string;
   };
   tags: string[];
   is_liked: boolean;
   is_saved: boolean;
-  // images?: string[]; // if you want to use this later
+  thumbnail: string;
+  is_spoilered: boolean;
 }
 
-declare module 'react-native-actions-sheet' {
-  interface Sheets {
-    'post-actions': {
-      onDeletePost?: (deletedPostId: number) => void;
-    };
-  }
+interface PostNovelProps {
+  post: PostType;
+  onDeletePost: (deletedPostId: number) => void;
 }
 
 
-const Post = ({ post, onDeletePost }: { post: any, onDeletePost: (deletedPostId: number) => void }) => {
+const PostIllustration = ({ post, onDeletePost }: { post: any, onDeletePost: (deletedPostId: number) => void }) => {
   const [likedPost, setLikedPost] = useState(post.is_liked);
   const [savedPost, setSavedPost] = useState(post.is_saved);
   const [token, setToken] = useState<string | null>(null);
   const { setSelectedPost } = useSelectedPost();
   const { setSelectedUser } = useSelectedUser();
+  const [profileImageError, setProfileImageError] = useState(false);
+  const { theme } = useTheme();
+  const styles = theme === 'dark' ? darkStyles : lightStyles;
+
   const router = useRouter();
 
   const getRelativeTime = (dateString: string): string => {
@@ -177,7 +183,28 @@ const Post = ({ post, onDeletePost }: { post: any, onDeletePost: (deletedPostId:
       });
   
       setSelectedPost(post.data);
+      console.log(post.data)
       router.push('/imageViewer');
+    } catch (err) {
+      console.error('Failed to load post details', err);
+    }
+  };
+
+  const openComments = async (postId: number) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        console.error('No token found');
+        router.push('/auth/login');
+        return;
+      }
+  
+      const post = await apiFetch(`/posts/${postId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+  
+      setSelectedPost(post.data);
+      SheetManager.show('comments-sheet')
     } catch (err) {
       console.error('Failed to load post details', err);
     }
@@ -216,7 +243,19 @@ const Post = ({ post, onDeletePost }: { post: any, onDeletePost: (deletedPostId:
     <View style={styles.postContainer}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => openProfile(post.author.id)}>
-          <Image source={require('../assets/images/penguin.png')} style={styles.avatar} />
+          <FastImage
+            source={
+              post.author?.profile_picture.includes('default')
+                ? require('../assets/images/default.jpg')
+                : {
+                    uri: getUserProfileImageUrl(post.author.profile_picture),
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                    priority: FastImage.priority.normal,
+                  }
+            }
+            style={styles.avatar}
+            // onError={() => setProfileImageError(true)}
+          />
         </TouchableOpacity>
 
         {/* Flex container for username and title */}
@@ -232,7 +271,9 @@ const Post = ({ post, onDeletePost }: { post: any, onDeletePost: (deletedPostId:
             setSelectedPost(post);
             SheetManager.show('post-actions', {
               payload: {
-                onDeletePost,
+                // onDeletePost,
+                source: 'home',
+                position: 0
               }
             });
           }}
@@ -249,17 +290,18 @@ const Post = ({ post, onDeletePost }: { post: any, onDeletePost: (deletedPostId:
           style={styles.carouselImage}
         /> */}
         <View style={styles.imageWrapper}>
+        {token && (
           <FastImage
             source={{
-              uri: getImageUrl(post.id),
-              headers: {
-                Authorization: `Bearer ${token}`, 
-              },
+              uri: getImageUrl(post.thumbnail),
+              headers: { Authorization: `Bearer ${token}` },
               priority: FastImage.priority.normal,
             }}
             style={styles.carouselImage}
             resizeMode={FastImage.resizeMode.cover}
           />
+
+          )}
 
           {post.is_spoilered && (
             <View style={styles.spoilerOverlay}>
@@ -275,12 +317,13 @@ const Post = ({ post, onDeletePost }: { post: any, onDeletePost: (deletedPostId:
             name={likedPost ? 'heart' : 'heart-o'}
             size={24}
             color={likedPost ? 'red' : 'black'}
+            style={styles.likeButton}
           />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.commentIcon}
-          onPress={() => SheetManager.show('comments-sheet')}>
-          <Icon name="message-circle" size={24} />
+          onPress={() => openComments(post.id)}>
+          <Icon name="message-circle" size={24} style={styles.iconColor}/>
         </TouchableOpacity>
         {/* <Icon name="more-horizontal" size={25} style={styles.swipeIcon} /> */}
         <TouchableOpacity
@@ -290,6 +333,7 @@ const Post = ({ post, onDeletePost }: { post: any, onDeletePost: (deletedPostId:
             name={savedPost ? 'bookmark' : 'bookmark-o'}
             size={24}
             color={savedPost ? '#7B61FF' : 'black'}
+            style={styles.saveButton}
           />
         </TouchableOpacity>
       </View>
@@ -302,32 +346,95 @@ const Post = ({ post, onDeletePost }: { post: any, onDeletePost: (deletedPostId:
   );
 };
 
+
+
+const PostNovel: React.FC<PostNovelProps> = ({ post, onDeletePost }) => {
+  const { setSelectedPost } = useSelectedPost();
+  const { setSelectedUser } = useSelectedUser();
+  const router = useRouter();
+  const [token, setToken] = useState<string | null>(null);
+  const { theme } = useTheme();
+  const styles = theme === 'dark' ? darkStyles : lightStyles;
+
+  useEffect(() => {
+    const loadToken = async () => {
+      const storedToken = await AsyncStorage.getItem('token');
+      setToken(storedToken);
+    };
+    loadToken();
+  }, []);
+
+  const openProfile = async (userId: number) => {
+    const user = await apiFetch(`/users/${userId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setSelectedUser(user.data);
+    router.push('/profile');
+  };
+
+  const openNovel = async (postId: number) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        console.error('No token found');
+        router.push('/auth/login');
+        return;
+      }
+  
+      const post = await apiFetch(`/posts/${postId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+  
+      setSelectedPost(post.data);
+      console.log(post.data)
+      router.push('/openedNovel');
+    } catch (err) {
+      console.error('Failed to load post details', err);
+    }
+  };
+
+  return (
+    <View style={styles.novelContainer}>
+      <TouchableOpacity onPress={() => openNovel(post.id)}>
+        <FastImage
+          source={{
+            uri: getImageUrl(post.thumbnail),
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          }}
+          style={styles.novelThumbnail}
+        />
+      </TouchableOpacity>
+        <View style={styles.novelContent}>
+          <TouchableOpacity onPress={() => openNovel(post.id)}>
+            <Text style={styles.novelTitle}>{post.title}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => openProfile(post.author.id)}>
+            <Text style={styles.novelAuthor}>by {post.author.username}</Text>
+          </TouchableOpacity>
+
+          <View style={styles.novelTags}>
+            {post.tags && post.tags.map((tag: string, index: number) => (
+              <Text key={index} style={styles.novelTag}>#{tag} </Text>
+            ))}
+          </View>
+
+          <Text style={styles.novelTime}>{post.created_at}</Text>
+        </View>
+
+        <TouchableOpacity style={styles.novelMenu}>
+          <Icon name="more-vertical" size={20} style={styles.iconColor} />
+        </TouchableOpacity>
+    </View>
+  );
+};
+
 const HomeScreen = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('Illustration');
   const [data, setData] = useState<PostType[]>([]);
-
-  // const posts = [
-  //   {
-  //     id: '1',
-  //     user: 'Name',
-  //     title: 'post name',
-  //     images: [
-  //       require('../assets/images/bing.png'),
-  //       require('../assets/images/penguin.png'),
-  //     ],
-  //   },
-  //   {
-  //     id: '2',
-  //     user: 'Name',
-  //     title: 'post name',
-  //     images: [
-  //       require('../assets/images/penguin.png'),
-  //       require('../assets/images/bing.png'),
-  //       require('../assets/images/penguin.png'),
-  //     ],
-  //   },
-  // ];
+  const { theme } = useTheme();
+  const styles = theme === 'dark' ? darkStyles : lightStyles;
 
   const openSearch = async () => {
     router.push('./search');
@@ -391,15 +498,26 @@ const HomeScreen = () => {
           if (activeTab === 'Illustration') return post.post_type === 'ILLUSTRATION';
           return true;
         })
-        .map((post, index) => (
-          <Post 
-            key={index} 
-            post={post} 
-            onDeletePost={(deletedPostId) => {
-              setData(prevData => prevData.filter(p => p.id !== deletedPostId));
-            }} 
-          />
-        ))
+        .map((post, index) =>
+          post.post_type === 'ILLUSTRATION' ? (
+            <PostIllustration
+              key={index}
+              post={post}
+              onDeletePost={(deletedPostId: number) => {
+                setData(prevData => prevData.filter(p => p.id !== deletedPostId));
+              }}
+            />
+          ) : (
+            <PostNovel
+              key={index}
+              post={post}
+              onDeletePost={(deletedPostId: number) => {
+                setData(prevData => prevData.filter(p => p.id !== deletedPostId));
+              }}
+            />
+          )
+        )
+        
       }
       </ScrollView>
 
@@ -408,7 +526,7 @@ const HomeScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const lightStyles = StyleSheet.create({
   container: { 
     flex: 1, 
     backgroundColor: '#fff' 
@@ -535,6 +653,258 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
+
+  novelContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 10,
+    borderBottomWidth: 1,
+    borderColor: '#eee',
+  },
+  novelThumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 10,
+    backgroundColor: '#ccc',
+  },
+  novelContent: {
+    flex: 1,
+  },
+  novelTitle: {
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  novelAuthor: {
+    color: '#444',
+    fontSize: 14,
+  },
+  novelExcerpt: {
+    color: '#666',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  novelTags: {
+    color: '#7B61FF',
+    fontSize: 13,
+    marginTop: 2,
+    flexDirection: 'row'
+  },
+  novelTag: {
+    color: '#7B61FF',
+    fontSize: 13,
+    marginRight: 5, 
+  },
+  novelTime: {
+    color: 'gray',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  novelMenu: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconColor: {
+    color: '#000'
+  },
+  likeButton:{
+    color: 'red'
+  },
+  saveButton:{
+    color: "#7B61FF"
+  }
+});
+
+const darkStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000'
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 10,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 10,
+  },
+  textContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  name: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#eee',
+  },
+  subtext: {
+    fontSize: 12,
+    color: '#999',
+  },
+  menuIconContainer: {
+    paddingLeft: 10,
+    paddingRight: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  swipeIcon: {
+    marginLeft: '70%',
+    color: '#999',
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    marginLeft: 10,
+  },
+  commentIcon: {
+    marginLeft: 16,
+  },
+  caption: {
+    marginTop: 8,
+    fontSize: 16,
+    marginLeft: 10,
+    color: '#eee',
+  },
+  timestamp: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 4,
+    marginLeft: 10,
+  },
+  topTabs: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginBottom: 30,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  tabText: {
+    fontSize: 16,
+    color: '#fff',
+  },
+  activeTabText: {
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  scrollContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  postContainer: {
+    marginBottom: 30,
+    paddingBottom: 10,
+    borderColor: '#333',
+    borderBottomWidth: 1,
+  },
+  carouselImage: {
+    width: screenWidth,
+    height: 300,
+    resizeMode: 'cover',
+  },
+  dotContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#555',
+    marginHorizontal: 4,
+  },
+  activeDot: {
+    backgroundColor: '#fff',
+  },
+  imageWrapper: {
+    position: 'relative',
+    width: screenWidth,
+    height: 300,
+    overflow: 'hidden',
+  },
+  spoilerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  spoilerText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  novelContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 10,
+    borderBottomWidth: 1,
+    borderColor: '#333',
+  },
+  novelThumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 10,
+    backgroundColor: '#333',
+  },
+  novelContent: {
+    flex: 1,
+  },
+  novelTitle: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#eee',
+  },
+  novelAuthor: {
+    color: '#999',
+    fontSize: 14,
+  },
+  novelExcerpt: {
+    color: '#666',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  novelTags: {
+    color: '#7B61FF',
+    fontSize: 13,
+    marginTop: 2,
+    flexDirection: 'row'
+  },
+  novelTag: {
+    color: '#7B61FF',
+    fontSize: 13,
+    marginRight: 5,
+  },
+  novelTime: {
+    color: '#999',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  novelMenu: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconColor: {
+    color: '#fff'
+  },
+  likeButton:{
+    color: '#fff'
+  },
+  saveButton:{
+    color: "#fff"
+  }
 });
 
 export default HomeScreen;

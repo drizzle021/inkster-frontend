@@ -3,16 +3,18 @@ import { router } from 'expo-router';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
-export function getImageUrl(postId: number, position: number = 1) {
-  return `${BASE_URL}/posts/image/${postId}/${position}`;
+export function getImageUrl(image_name: string) {
+  // console.log(image_name)
+  return `${BASE_URL}/posts/image/${image_name}`;
 }
 
-export function getUserProfileImageUrl(userId: number) {
-  return `${BASE_URL}/users/image/picture/${userId}`;
+export function getUserProfileImageUrl(image_name: string) {
+  // console.log("profile pic " + image_name)
+  return `${BASE_URL}/users/image/${image_name}`;
 }
 
-export function getUserBannerImageUrl(userId: number) {
-  return `${BASE_URL}/users/image/banner/${userId}`;
+export function getUserBannerImageUrl(image_name: string) {
+  return `${BASE_URL}/users/image/${image_name}`;
 }
 
 export async function apiFetch<T = any>(
