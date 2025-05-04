@@ -8,6 +8,7 @@ import { apiFetch, getImageUrl, getUserBannerImageUrl, getUserProfileImageUrl } 
 import { useSelectedPost } from './contexts/selectedPostContext';
 import { useSelectedUser } from './contexts/selectedUserContext';
 import FastImage from 'react-native-fast-image';
+import { useTheme } from './contexts/ThemeContext';
 
 interface UserPost {
   id: number;
@@ -18,6 +19,7 @@ interface UserPost {
   software: string;
   is_spoilered: boolean;
   created_at: string;
+  thumbnail: string;
 }
 
 interface UserProfile {
@@ -40,12 +42,17 @@ const ProfileScreen = () => {
     const [loggedInUserId, setLoggedInUserId] = useState<number | null>(null);
     const router = useRouter();
 
+    const { theme } = useTheme();
+    const styles = theme === 'dark' ? darkStyles : lightStyles;
+
     const [user, setUser] = useState<UserProfile | null>(null);
     const { setSelectedPost } = useSelectedPost();
     const { selectedUser } = useSelectedUser();
     const [token, setToken] = useState<string | null>(null);
-
-
+    // const [profileImageError, setProfileImageError] = useState(false);
+    const isDefaultProfilePicture = user?.profile_picture?.includes('default');
+    const isDefaultBanner = user?.banner?.includes('background');
+  
 
     useEffect(() => {
       const fetchData = async () => {
@@ -72,7 +79,6 @@ const ProfileScreen = () => {
     
           setUser(userData.data);
           setIsFollowing(userData.data.is_following || false);
-    
         } catch (err: any) {
           console.error('Error loading user:', err.message || err);
         }
@@ -101,6 +107,27 @@ const ProfileScreen = () => {
     
         setSelectedPost(post.data);
         router.push('/imageViewer');
+      } catch (err) {
+        console.error('Failed to load post details', err);
+      }
+    };
+
+    const openNovel = async (postId: number) => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          console.error('No token found');
+          router.push('/auth/login');
+          return;
+        }
+    
+        const post = await apiFetch(`/posts/${postId}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+    
+        setSelectedPost(post.data);
+        console.log(post.data)
+        router.push('/openedNovel');
       } catch (err) {
         console.error('Failed to load post details', err);
       }
@@ -159,14 +186,56 @@ const ProfileScreen = () => {
             <ScrollView style={styles.scrollContainer}>
             {/* Profile Section */}
             <View style={styles.profileSection}>
-                <Image
-                    source={require('../assets/images/banner_background.jpg')}
-                    style={styles.bannerPic}
-                />
-                <Image 
-                source={require('../assets/images/bing.png')} 
-                style={styles.profilePic} 
-                />
+              {user && token ? (
+                  <>
+                    <FastImage
+                      source={
+                        isDefaultBanner
+                          ? require('../assets/images/banner_background.jpg')
+                          : {
+                              uri: getUserBannerImageUrl(user.banner),
+                              headers: {
+                                Authorization: `Bearer ${token}`,
+                              },
+                              priority: FastImage.priority.normal,
+                            }
+                      }
+                      style={styles.bannerPic}
+
+                      // onError={() => setProfileImageError(true)}
+                    />
+                    <FastImage
+                      source={
+                        isDefaultProfilePicture
+                          ? require('../assets/images/default.jpg')
+                          : {
+                              uri: getUserProfileImageUrl(user.profile_picture),
+                              headers: {
+                                Authorization: `Bearer ${token}`,
+                              },
+                              priority: FastImage.priority.normal,
+                            }
+                      }
+                      style={styles.profilePic}
+
+                      // onError={() => setProfileImageError(true)}
+                    />
+                  </>
+                ) : (
+                  <>
+                    {/* Fallback local images if user not loaded */}
+                    <FastImage
+                      source={require('../assets/images/banner_background.jpg')}
+                      style={styles.bannerPic}
+                      resizeMode={FastImage.resizeMode.cover}
+                    />
+                    <FastImage
+                      source={require('../assets/images/default.jpg')}
+                      style={styles.profilePic}
+                      resizeMode={FastImage.resizeMode.cover}
+                    />
+                  </>
+                )}
                 <View style={styles.userInfo}>
                 <View style={styles.nameFollowContainer}>
                   <View style={styles.spacer} />
@@ -252,12 +321,18 @@ const ProfileScreen = () => {
                           key={post.id}
                           style={styles.postItem}
                           activeOpacity={0.8}
-                          onPress={() => openImage(post.id)}
+                          onPress={() => {
+                            if (post.post_type === 'ILLUSTRATION') {
+                              openImage(post.id);
+                            } else if (post.post_type === 'NOVEL') {
+                              openNovel(post.id);
+                            }
+                          }}
                         >
                         <View style={styles.imageWrapper}>
                           <FastImage
                             source={{
-                              uri: getImageUrl(post.id),
+                              uri: getImageUrl(post.thumbnail),
                               headers: {
                                 Authorization: `Bearer ${token}`,
                               },
@@ -287,7 +362,7 @@ const ProfileScreen = () => {
     );
 };
 
-const styles = StyleSheet.create({
+const lightStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
@@ -429,6 +504,141 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   
+  spoilerText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+});
+
+const darkStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  profileSection: {
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+    marginBottom: 20,
+  },
+  profilePic: {
+    width: 150,
+    height: 150,
+    borderRadius: 100,
+    marginTop: -80,
+    borderWidth: 8,
+    borderColor: '#333',
+  },
+  bannerPic: {
+    width: '90%',
+    height: 180,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  userInfo: {
+    alignItems: 'center',
+  },
+  nameFollowContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 10,
+    paddingHorizontal: 20,
+  },
+  spacer: {
+    width: 100,
+  },
+  usernameContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#eee',
+  },
+  followButton: {
+    width: 100,
+    paddingVertical: 8,
+    backgroundColor: '#7B61FF',
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  followButtonText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#fff',
+  },
+  followButtonPlaceholder: {
+    width: 100,
+    height: 36,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  statItem: {
+    marginHorizontal: 10,
+    alignItems: 'center',
+    backgroundColor: '#333',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#eee',
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#999',
+  },
+  postsContainer: {
+    paddingHorizontal: 10,
+    paddingBottom: 20,
+  },
+  postRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  postItem: {
+    width: '48%',
+    aspectRatio: 1,
+    backgroundColor: '#333',
+    borderRadius: 10,
+  },
+  postImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 10,
+  },
+  tags: {
+    color: '#A7F3D0',
+    fontWeight: 'bold',
+  },
+  imageWrapper: {
+    position: 'relative',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  spoilerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
   spoilerText: {
     color: '#fff',
     fontSize: 24,

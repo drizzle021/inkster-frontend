@@ -5,10 +5,12 @@ import { Link, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { apiFetch } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from './contexts/ThemeContext';
 
 export default function Setup() {
   const colorScheme = useColorScheme();
-  const styles = colorScheme === 'dark' ? darkStyles : lightStyles;
+  const { theme } = useTheme();
+  const styles = theme === 'dark' ? darkStyles : lightStyles;
   const router = useRouter();
 
   const [tags, setTags] = useState('');
@@ -70,52 +72,111 @@ export default function Setup() {
   }, [tags, router]);
 
 
-
   const handleProfilePicSelect = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (permissionResult.granted === false) {
+    if (!permissionResult.granted) {
       alert('Permission to access media library is required!');
       return;
     }
   
-    // Launch the image picker to select an image
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: "images",
       allowsEditing: true, 
-      aspect: [4, 4], 
+      aspect: [1, 1],
       quality: 1, 
     });
   
-    if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
-      const {uri} = pickerResult.assets[0];
+    if (!pickerResult.canceled && pickerResult.assets.length > 0) {
+      const { uri } = pickerResult.assets[0];
       setSelectedProfilePic(uri);
-      // setProfilePic(uri);  
+  
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        alert('User not authenticated');
+        return;
+      }
+  
+      const fileName = uri.split('/').pop() || 'photo.jpg';
+      const fileType = fileName.split('.').pop();
+  
+      const formData = new FormData();
+      formData.append('profile_picture', {
+        uri,
+        name: fileName,
+        type: `image/${fileType}`,
+      } as any);
+  
+      try {
+        await apiFetch('/users/update-pictures', {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+          body: formData,
+        });
+  
+        console.log('Profile picture uploaded successfully');
+      } catch (error) {
+        console.error('Failed to upload profile picture:', error);
+      }
     }
   };
+  
+
+
 
   const handleProfileBannerSelect = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (permissionResult.granted === false) {
+    if (!permissionResult.granted) {
       alert('Permission to access media library is required!');
       return;
     }
   
-    // Launch the image picker to select an image
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
-      allowsEditing: true, 
-      aspect: [4, 4], 
-      quality: 1, 
+      mediaTypes: "images",
+      allowsEditing: true,
+      aspect: [4, 2],
+      quality: 1,
     });
   
-    if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
-      const {uri} = pickerResult.assets[0];
+    if (!pickerResult.canceled && pickerResult.assets.length > 0) {
+      const { uri } = pickerResult.assets[0];
       setSelectedProfileBanner(uri);
-
+  
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        alert('User not authenticated');
+        return;
+      }
+  
+      const fileName = uri.split('/').pop() || 'banner.jpg';
+      const fileType = fileName.split('.').pop();
+  
+      const formData = new FormData();
+      formData.append('banner', {
+        uri,
+        name: fileName,
+        type: `image/${fileType}`,
+      } as any);
+  
+      try {
+        await apiFetch('/users/update-pictures', {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+          body: formData,
+        });
+  
+        console.log('Banner uploaded successfully');
+      } catch (error) {
+        console.error('Failed to upload banner:', error);
+      }
     }
   };
+  
 
 
 
@@ -171,7 +232,7 @@ export default function Setup() {
               style={styles.bannerPreview}
             />
             <Image
-              source={selectedProfilePic ? { uri: selectedProfilePic } : require('../assets/images/shaq.png')}
+              source={selectedProfilePic ? { uri: selectedProfilePic } : require('../assets/images/default.jpg')}
               style={styles.profilePreview}
             />
           </View>
