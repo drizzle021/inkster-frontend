@@ -51,25 +51,41 @@ export default function AddPost() {
   const [spoiler, setSpoiler] = useState(false);
 
   const pickImages = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsMultipleSelection: true,
-      mediaTypes: 'images',
-      quality: 1,
-      selectionLimit: 10,
-    });
-  
-    if (!result.canceled && result.assets.length > 0) {
-      setImages(result.assets);
-      setIsNewPost(true);
-    } else {
-      router.back();
+    if (postType === "NOVEL"){
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsMultipleSelection: true,
+        mediaTypes: 'images',
+        quality: 1,
+        selectionLimit: 1,
+      });
+      if (!result.canceled && result.assets.length > 0) {
+        setImages(result.assets);
+        setIsNewPost(true);
+      } else {
+        router.back();
+      }
     }
+    else if (postType === "ILLUSTRATION"){
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsMultipleSelection: true,
+        mediaTypes: 'images',
+        quality: 1,
+        selectionLimit: 10,
+      });
+      if (!result.canceled && result.assets.length > 0) {
+        setImages(result.assets);
+        setIsNewPost(true);
+      } else {
+        router.back();
+      }
+    }
+  
+
   };
 
 
   const loadPost = async () => {
-    console.log("EDIT")
-    console.log(selectedPost)
+
     if (selectedPost?.images) {
       const formattedImages = selectedPost.images.map(img => ({
         uri: getImageUrl(img.image_name),
@@ -83,7 +99,7 @@ export default function AddPost() {
       setSelectedSoftware(selectedPost.software);
       setIsEditing(true);
     } else {
-      console.log("SZAR")
+
       setImages([]); 
     }
 
@@ -146,6 +162,7 @@ export default function AddPost() {
           },
           body: formData,
         });
+        console.log(res)
       }
 
       if (!isEditing){
@@ -158,6 +175,7 @@ export default function AddPost() {
         });
       }
 
+      
       router.push('/profile');
     } catch (err: any) {
       const errorText = err?.error || err?.message || '';
@@ -225,6 +243,7 @@ export default function AddPost() {
             placeholder="Enter title..."
             value={title}
             onChangeText={setTitle}
+            maxLength={100}
           />
 
           <Text style={styles.label}>Caption<Text style={styles.required}>*</Text></Text>
@@ -234,6 +253,7 @@ export default function AddPost() {
             value={caption}
             onChangeText={setCaption}
             multiline
+            maxLength={3000}
           />
 
           <Text style={styles.label}>Tags<Text style={styles.required}>*</Text> (comma separated)</Text>
@@ -250,6 +270,7 @@ export default function AddPost() {
             placeholder="Enter description..."
             value={altText}
             onChangeText={setAltText}
+            maxLength={300}
           />
           <Text style={styles.helperText}>Adding description (alt-text) can help people with vision impairment</Text>
 

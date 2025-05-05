@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 // Define the Post type
-interface PostType {
+export interface PostType {
   id: number;
   title: string;
   caption: string;

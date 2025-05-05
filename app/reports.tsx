@@ -51,7 +51,9 @@ const ReportsScreen = () => {
         {loading ? (
           <ActivityIndicator size="large" color="#000" style={{ marginTop: 20 }} />
         ) : (
-          reports.map((report) => (
+          reports
+          .filter((report) => report.status === 'PENDING')
+          .map((report) => (
             <TouchableOpacity
               key={report.id}
               style={styles.optionButton}

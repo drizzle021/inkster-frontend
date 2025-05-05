@@ -18,32 +18,31 @@ import { useTheme } from '../contexts/ThemeContext';
 export default function PostActionsSheet(props: SheetProps<"post-actions">) {
   const { payload } = props;
   const source = payload?.source ?? 'home'; 
-  const position = payload?.position;
+  const position = payload?.position ?? 0;
+  const isOwner = payload?.isOwner;
+  
   const { selectedPost, setSelectedPost } = useSelectedPost();
 
   const { theme } = useTheme();
   const styles = theme === 'dark' ? darkStyles : lightStyles;
+  
   // const { setSelectedReportPost } = useSelectedReportPost();
+  
   const router = useRouter();
-  const [userId, setUserId] = useState<number | null>(null);
+
   const [currentImagePosition, setCurrentImagePosition] = useState<number | null>(null);
 
-  useEffect(() => {
-    const fetchUserId = async () => {
-      try {
-        const response = await apiFetch('/users/me');
-        setUserId(response.data.id);
-      } catch (error) {
-        console.error('Failed to load current user', error);
-      }
-    };
+  const isViewer = source === 'viewer';
 
-    if (typeof position === 'number') {
-      setCurrentImagePosition(position);
-    }
+  useEffect(() => {
+
+
+    // if (typeof position === 'number') {
+    //   setCurrentImagePosition(position);
+    // }
   
-    fetchUserId();
-  }, [position]);
+
+  }, []);
 
 
   const saveImageToGallery = async (imageUrl: string) => {
@@ -177,79 +176,158 @@ export default function PostActionsSheet(props: SheetProps<"post-actions">) {
     }
   };
 
-  const isOwner = selectedPost?.author.id === userId;
+  const renderOwnerOptions = () => (
+    <>
+      <TouchableOpacity style={styles.option} onPress={() => editPost(selectedPost!.id)}>
+        <Text style={styles.optionText}>Edit</Text>
+      </TouchableOpacity>
+
+      {isViewer && (
+        // <TouchableOpacity style={styles.option} onPress={saveImageToGallery}>
+        //   <Text style={styles.optionText}>Save Image</Text>
+        // </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.option}
+          onPress={() => {
+            const imageUri =
+            typeof position === 'number' &&
+            selectedPost?.images?.[position]?.image_name
+              ? getImageUrl(selectedPost.images[position].image_name)
+              : null;
+
+            if (imageUri) {
+              saveImageToGallery(imageUri);
+            } else {
+              alert('No image available to save.');
+            }
+          }}
+        >
+          <Text style={styles.optionText}>Save Image</Text>
+        </TouchableOpacity>
+      )}
+
+      <TouchableOpacity style={styles.option} onPress={() => deletePost(selectedPost!.id)}>
+        <Text style={[styles.optionText, { color: 'red' }]}>Delete</Text>
+      </TouchableOpacity>
+    </>
+  );
+
+  const renderViewerOptions = () => (
+    <>
+      {isViewer && (
+        // <TouchableOpacity style={styles.option} onPress={saveImageToGallery}>
+        //   <Text style={styles.optionText}>Save Image</Text>
+        // </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.option}
+          onPress={() => {
+            const imageUri =
+            typeof position === 'number' &&
+            selectedPost?.images?.[position]?.image_name
+              ? getImageUrl(selectedPost.images[position].image_name)
+              : null;
+
+            if (imageUri) {
+              saveImageToGallery(imageUri);
+            } else {
+              alert('No image available to save.');
+            }
+          }}
+        >
+          <Text style={styles.optionText}>Save Image</Text>
+        </TouchableOpacity>
+      )}
+      <TouchableOpacity style={styles.option} onPress={() => reportPost(selectedPost!.id)}>
+        <Text style={[styles.optionText, { color: 'red' }]}>Report</Text>
+      </TouchableOpacity>
+    </>
+  );
 
   return (
     <ActionSheet id={props.sheetId}>
       <View style={styles.sheet}>
-        {isOwner ? (
-          <>
-            <TouchableOpacity style={styles.option} onPress={() => editPost(selectedPost.id)}>
-              <Text style={styles.optionText}>Edit</Text>
-            </TouchableOpacity>
-
-            {source === 'viewer' && (
-              <TouchableOpacity
-                style={styles.option}
-                onPress={() => {
-                  const imageUri =
-                  typeof position === 'number' &&
-                  selectedPost?.images?.[position]?.image_name
-                    ? getImageUrl(selectedPost.images[position].image_name)
-                    : null;
-
-                  if (imageUri) {
-                    saveImageToGallery(imageUri);
-                  } else {
-                    alert('No image available to save.');
-                  }
-                }}
-              >
-                <Text style={styles.optionText}>Save Image</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity style={styles.option} onPress={() => deletePost(selectedPost.id)}>
-              <Text style={[styles.optionText, { color: 'red' }]}>Delete</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            {source === 'viewer' && (
-              <TouchableOpacity
-                style={styles.option}
-                onPress={() => {
-                  const imageUri =
-                  typeof position === 'number' &&
-                  selectedPost?.images?.[position]?.image_name
-                    ? getImageUrl(selectedPost.images[position].image_name)
-                    : null;
-
-                  if (imageUri) {
-                    saveImageToGallery(imageUri);
-                  } else {
-                    alert('No image available to save.');
-                  }
-                }}
-              >
-                <Text style={styles.optionText}>Save Image</Text>
-              </TouchableOpacity>
-            )}
-
-
-            {selectedPost && (
-              <TouchableOpacity style={styles.option} onPress={() => reportPost(selectedPost.id)}>
-                <Text style={[styles.optionText, { color: 'red' }]}>Report</Text>
-              </TouchableOpacity>
-            )}
-          </>
-        )}
-        <TouchableOpacity style={styles.cancel} onPress={cancel}>
+        {isOwner ? renderOwnerOptions() : renderViewerOptions()}
+        {/* {renderViewerOptions()} */}
+        <TouchableOpacity style={styles.cancel} onPress={() => cancel()}>
           <Text style={styles.cancelText}>Cancel</Text>
+          <Text style={styles.cancelText}>{isOwner ? 'a': 'b'}</Text>
+          
         </TouchableOpacity>
       </View>
     </ActionSheet>
   );
+
+  // return (
+  //   <ActionSheet id={props.sheetId}>
+  //     <View style={styles.sheet}>
+  //       {isOwner ? (
+  //         <>
+  //           <TouchableOpacity style={styles.option} onPress={() => editPost(selectedPost.id)}>
+  //             <Text style={styles.optionText}>Edit</Text>
+  //           </TouchableOpacity>
+
+  //           {source === 'viewer' && (
+  //             <TouchableOpacity
+  //               style={styles.option}
+  //               onPress={() => {
+  //                 const imageUri =
+  //                 typeof position === 'number' &&
+  //                 selectedPost?.images?.[position]?.image_name
+  //                   ? getImageUrl(selectedPost.images[position].image_name)
+  //                   : null;
+
+  //                 if (imageUri) {
+  //                   saveImageToGallery(imageUri);
+  //                 } else {
+  //                   alert('No image available to save.');
+  //                 }
+  //               }}
+  //             >
+  //               <Text style={styles.optionText}>Save Image</Text>
+  //             </TouchableOpacity>
+  //           )}
+
+  //           <TouchableOpacity style={styles.option} onPress={() => deletePost(selectedPost.id)}>
+  //             <Text style={[styles.optionText, { color: 'red' }]}>Delete</Text>
+  //           </TouchableOpacity>
+  //         </>
+  //       ) : (
+  //         <>
+  //           {source === 'viewer' && (
+  //             <TouchableOpacity
+  //               style={styles.option}
+  //               onPress={() => {
+  //                 const imageUri =
+  //                 typeof position === 'number' &&
+  //                 selectedPost?.images?.[position]?.image_name
+  //                   ? getImageUrl(selectedPost.images[position].image_name)
+  //                   : null;
+
+  //                 if (imageUri) {
+  //                   saveImageToGallery(imageUri);
+  //                 } else {
+  //                   alert('No image available to save.');
+  //                 }
+  //               }}
+  //             >
+  //               <Text style={styles.optionText}>Save Image</Text>
+  //             </TouchableOpacity>
+  //           )}
+
+
+  //           {selectedPost && (
+  //             <TouchableOpacity style={styles.option} onPress={() => reportPost(selectedPost.id)}>
+  //               <Text style={[styles.optionText, { color: 'red' }]}>Report</Text>
+  //             </TouchableOpacity>
+  //           )}
+  //         </>
+  //       )}
+  //       <TouchableOpacity style={styles.cancel} onPress={cancel}>
+  //         <Text style={styles.cancelText}>Cancel</Text>
+  //       </TouchableOpacity>
+  //     </View>
+  //   </ActionSheet>
+  // );
 }
 
 const lightStyles = StyleSheet.create({

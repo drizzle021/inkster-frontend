@@ -7,6 +7,7 @@ import {
 import Icon from 'react-native-vector-icons/Feather';
 import { useRouter } from 'expo-router';
 import { useSelectedPost } from './contexts/selectedPostContext';
+import { useSelectedUser } from './contexts/selectedUserContext';
 import FastImage from 'react-native-fast-image';
 import { apiFetch, getImageUrl, getUserProfileImageUrl } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,16 +16,28 @@ import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import BottomNavigation from './components/navigation';
 import TopNavigation from './components/top_navigation';
 import { useTheme } from './contexts/ThemeContext';
+import { useLocalSearchParams } from 'expo-router';
+import { AccessibilityInfo } from 'react-native';
+import { useReaderMode } from './contexts/ReaderModeContext';
 
 export default function OpenedNovel() {
+  const params = useLocalSearchParams();
+  const source = params?.source ?? 'home';
+
+  const { readerEnabled } = useReaderMode();
+
+
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const { selectedPost } = useSelectedPost();
-  const { setSelectedPost } = useSelectedPost();
+  // const { setSelectedPost } = useSelectedPost();
   const [images, setImages] = useState<{ uri: string }[]>([]);
 
   const { theme } = useTheme();
   const styles = theme === 'dark' ? darkStyles : lightStyles;
+
+  const { currentUser } = useSelectedUser();
+  const isOwner = selectedPost?.author.id === currentUser?.id;
 
   const [likedPost, setLikedPost] = useState(selectedPost?.is_liked);
   const [likeCount, setLikeCount] = useState(selectedPost?.likes);
@@ -45,10 +58,23 @@ export default function OpenedNovel() {
       }
     };
     console.log(selectedPost)
-    setSelectedPost(selectedPost);
+    // setSelectedPost(selectedPost);
+
     loadTokenAndImages();
   }, [selectedPost]);
 
+  useEffect(() => {
+    if (!readerEnabled || !selectedPost?.title) return;
+  
+    const content = `Title: ${selectedPost.title}. Caption: ${selectedPost.caption || 'No caption provided.'}`;
+  
+    const timeoutId = setTimeout(() => {
+      AccessibilityInfo.announceForAccessibility(content);
+    }, 1000);
+  
+    return () => clearTimeout(timeoutId);
+  }, [readerEnabled, selectedPost?.id]); 
+  
 
   const handleLike = async () => {
     try {
@@ -115,17 +141,23 @@ export default function OpenedNovel() {
             
             <View style={styles.details}>
                 <View style={styles.userRow}>
-                    <Text style={styles.title}>{selectedPost?.title}</Text>    
+                    <Text style={styles.title}
+                      accessible={readerEnabled}
+                      accessibilityLabel={`Title: ${selectedPost?.title || 'Untitled Post'}`}
+                    >
+                      {selectedPost?.title}
+                    </Text>    
                     
                     <TouchableOpacity
                         style={styles.menuIconContainer}
                         onPress={() => {
-                            setSelectedPost(selectedPost);
+                            // setSelectedPost(selectedPost);
                             SheetManager.show('post-actions', {
                             payload: {
                                 // onDeletePost,
                                 source: 'viewer',
-                                position: 0
+                                position: 0,
+                                isOwner,
                             }
                             });
                         }}
@@ -180,8 +212,17 @@ export default function OpenedNovel() {
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.separator} />
                 <Text style={styles.description}>
+                    {selectedPost?.created_at || 'created_at'}
+                </Text>
+
+                <View style={styles.separator} />
+
+                <Text style={styles.description}
+                  accessible={readerEnabled}
+                  accessibilityLabel={`Caption: ${selectedPost?.caption || 'No caption provided.'}`}
+                >
+                
                     {selectedPost?.caption || 'No caption provided.'}
                 </Text>
         

@@ -4,13 +4,14 @@ import ActionSheet from 'react-native-actions-sheet';
 import { SheetManager } from 'react-native-actions-sheet';
 import { useRouter } from 'expo-router';
 import Icon from 'react-native-vector-icons/Feather';
-import { KeyboardAvoidingView, Platform } from 'react-native';
+// import { KeyboardAvoidingView, Platform } from 'react-native';
 import { useSelectedPost } from '../contexts/selectedPostContext';
 import { apiFetch, getUserProfileImageUrl } from '../api';
 import FastImage from 'react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSelectedUser } from '../contexts/selectedUserContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 
 type Comment = {
   id: number;

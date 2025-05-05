@@ -10,6 +10,7 @@ declare module 'react-native-actions-sheet' {
       payload: {
         source: string;
         position: number;
+        isOwner: boolean;
       };
     }>;
   }

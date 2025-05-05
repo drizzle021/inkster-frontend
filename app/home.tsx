@@ -17,6 +17,7 @@ import { useSelectedUser } from './contexts/selectedUserContext';
 import FastImage from 'react-native-fast-image';
 import { BlurView } from 'expo-blur';
 import { useTheme } from './contexts/ThemeContext';
+import { PostType } from './contexts/selectedPostContext'
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -59,23 +60,6 @@ const PostCarousel = ({images,onImageTap}: {
   );
 };
 
-interface PostType {
-  id: number;
-  title: string;
-  caption: string;
-  post_type: string;
-  created_at: string;
-  author: {
-    id: number,
-    username: string;
-    profile_picture: string;
-  };
-  tags: string[];
-  is_liked: boolean;
-  is_saved: boolean;
-  thumbnail: string;
-  is_spoilered: boolean;
-}
 
 interface PostNovelProps {
   post: PostType;
@@ -93,7 +77,12 @@ const PostIllustration = ({ post, onDeletePost }: { post: any, onDeletePost: (de
   const { theme } = useTheme();
   const styles = theme === 'dark' ? darkStyles : lightStyles;
 
+  const { currentUser } = useSelectedUser();
+  const isOwner = post.author.id === currentUser?.id;
+
   const router = useRouter();
+
+  const [userId, setUserId] = useState<number | null>(null);
 
   const getRelativeTime = (dateString: string): string => {
     const now = new Date().getTime();
@@ -165,10 +154,7 @@ const PostIllustration = ({ post, onDeletePost }: { post: any, onDeletePost: (de
     }
   };
 
-  // const openImage = async () => {
-  //   setSelectedPost(post);
-  //   router.push('/imageViewer');
-  // };
+
   const openImage = async (postId: number) => {
     try {
       const token = await AsyncStorage.getItem('token');
@@ -184,7 +170,12 @@ const PostIllustration = ({ post, onDeletePost }: { post: any, onDeletePost: (de
   
       setSelectedPost(post.data);
       console.log(post.data)
-      router.push('/imageViewer');
+      router.push({
+        pathname: '/imageViewer',
+        params: { 
+          source: 'home'  
+        },
+      });
     } catch (err) {
       console.error('Failed to load post details', err);
     }
@@ -236,6 +227,7 @@ const PostIllustration = ({ post, onDeletePost }: { post: any, onDeletePost: (de
       setToken(storedToken);
     };
     loadToken();
+
   }, []);
   
 
@@ -268,12 +260,13 @@ const PostIllustration = ({ post, onDeletePost }: { post: any, onDeletePost: (de
         <TouchableOpacity
           style={styles.menuIconContainer}
           onPress={() => {
-            setSelectedPost(post);
+            // setSelectedPost(post);
             SheetManager.show('post-actions', {
               payload: {
                 // onDeletePost,
                 source: 'home',
-                position: 0
+                position: 0,
+                isOwner,
               }
             });
           }}
@@ -290,16 +283,16 @@ const PostIllustration = ({ post, onDeletePost }: { post: any, onDeletePost: (de
           style={styles.carouselImage}
         /> */}
         <View style={styles.imageWrapper}>
-        {token && (
-          <FastImage
-            source={{
-              uri: getImageUrl(post.thumbnail),
-              headers: { Authorization: `Bearer ${token}` },
-              priority: FastImage.priority.normal,
-            }}
-            style={styles.carouselImage}
-            resizeMode={FastImage.resizeMode.cover}
-          />
+          {token && (
+            <FastImage
+              source={{
+                uri: getImageUrl(post.thumbnail),
+                headers: { Authorization: `Bearer ${token}` },
+                priority: FastImage.priority.normal,
+              }}
+              style={styles.carouselImage}
+              resizeMode={FastImage.resizeMode.cover}
+            />
 
           )}
 
@@ -339,7 +332,7 @@ const PostIllustration = ({ post, onDeletePost }: { post: any, onDeletePost: (de
       </View>
 
       <Text style={styles.caption}>{post.caption}</Text>
-      {/* <Text style={styles.timestamp}>{getRelativeTime(post.created_at)}</Text>     */}
+      <Text style={styles.timestamp}>{post.created_at}</Text>    
       <Text style={styles.caption}>ID: {post.id}</Text>
 
     </View>
@@ -355,6 +348,8 @@ const PostNovel: React.FC<PostNovelProps> = ({ post, onDeletePost }) => {
   const [token, setToken] = useState<string | null>(null);
   const { theme } = useTheme();
   const styles = theme === 'dark' ? darkStyles : lightStyles;
+  const { currentUser } = useSelectedUser();
+  const isOwner = post.author.id === currentUser?.id;
 
   useEffect(() => {
     const loadToken = async () => {
@@ -403,6 +398,11 @@ const PostNovel: React.FC<PostNovelProps> = ({ post, onDeletePost }) => {
           }}
           style={styles.novelThumbnail}
         />
+        {post.is_spoilered && (
+            <View style={styles.spoilerOverlayNovel}>
+              <Text style={styles.spoilerTextNovel}>Spoilered</Text>
+            </View>
+        )}
       </TouchableOpacity>
         <View style={styles.novelContent}>
           <TouchableOpacity onPress={() => openNovel(post.id)}>
@@ -422,7 +422,23 @@ const PostNovel: React.FC<PostNovelProps> = ({ post, onDeletePost }) => {
           <Text style={styles.novelTime}>{post.created_at}</Text>
         </View>
 
-        <TouchableOpacity style={styles.novelMenu}>
+        {/* <TouchableOpacity style={styles.novelMenu}>
+          <Icon name="more-vertical" size={20} style={styles.iconColor} />
+        </TouchableOpacity> */}
+        <TouchableOpacity
+          style={styles.novelMenu}
+          onPress={() => {
+            setSelectedPost(post);
+            SheetManager.show('post-actions', {
+              payload: {
+                // onDeletePost,
+                source: 'home',
+                position: 0,
+                isOwner,
+              }
+            });
+          }}
+        >
           <Icon name="more-vertical" size={20} style={styles.iconColor} />
         </TouchableOpacity>
     </View>
@@ -435,6 +451,7 @@ const HomeScreen = () => {
   const [data, setData] = useState<PostType[]>([]);
   const { theme } = useTheme();
   const styles = theme === 'dark' ? darkStyles : lightStyles;
+  const { setCurrentUser } = useSelectedUser();
 
   const openSearch = async () => {
     router.push('./search');
@@ -463,6 +480,22 @@ const HomeScreen = () => {
         console.error('Error fetching posts:', err.message || err);
       }
     };
+
+    const fetchUser = async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (token) {
+          const response = await apiFetch('/users/me', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setCurrentUser(response.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch current user:", error);
+      }
+    };
+  
+    fetchUser();
   
     fetchPosts();
   }, []);
@@ -646,10 +679,26 @@ const lightStyles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 10,
   },
-  
+  spoilerOverlayNovel: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 10,
+    zIndex: 10,
+  },
   spoilerText: {
     color: '#fff',
     fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  spoilerTextNovel: {
+    color: '#fff',
+    fontSize: 12,
     fontWeight: 'bold',
     textAlign: 'center',
   },
@@ -833,7 +882,7 @@ const darkStyles = StyleSheet.create({
   },
   spoilerOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgb(0, 0, 0)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
@@ -841,6 +890,23 @@ const darkStyles = StyleSheet.create({
   spoilerText: {
     color: '#fff',
     fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  spoilerOverlayNovel: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 10,
+    zIndex: 10,
+  },
+  spoilerTextNovel: {
+    color: '#fff',
+    fontSize: 12,
     fontWeight: 'bold',
     textAlign: 'center',
   },

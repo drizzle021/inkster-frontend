@@ -7,22 +7,36 @@ import {
 import Icon from 'react-native-vector-icons/Feather';
 import { useRouter } from 'expo-router';
 import { useSelectedPost } from './contexts/selectedPostContext';
+import { useSelectedUser } from './contexts/selectedUserContext';
 import FastImage from 'react-native-fast-image';
 import { apiFetch, getImageUrl, getUserProfileImageUrl } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SheetManager } from 'react-native-actions-sheet';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { useTheme } from './contexts/ThemeContext';
+import { useLocalSearchParams } from 'expo-router';
+import { useReaderMode } from './contexts/ReaderModeContext';
+import { AccessibilityInfo } from 'react-native';
 
 const screenHeight = Dimensions.get('window').height;
 const screenWidth = Dimensions.get('window').width;
 
 export default function ImageViewer() {
+  const params = useLocalSearchParams();
+  const source = params?.source
+
+  const { readerEnabled } = useReaderMode();
+
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [token, setToken] = useState<string | null>(null);
   const { selectedPost } = useSelectedPost();
-  const { setSelectedPost } = useSelectedPost();
+
+  // const { setSelectedPost } = useSelectedPost();
+  const { currentUser } = useSelectedUser();
+  const isOwner = selectedPost?.author.id === currentUser?.id;
+
+
   const flatListRef = useRef<FlatList>(null);
   const [images, setImages] = useState<{ uri: string }[]>([]);
 
@@ -50,7 +64,22 @@ export default function ImageViewer() {
     };
 
     loadTokenAndImages();
-  }, [selectedPost]);
+
+  }, []);
+
+  
+  useEffect(() => {
+    if (!readerEnabled || !selectedPost?.title) return;
+  
+    const content = `Title: ${selectedPost.title}. Caption: ${selectedPost.caption || 'No caption provided.'}`;
+    
+    const timeoutId = setTimeout(() => {
+      AccessibilityInfo.announceForAccessibility(content);
+    }, 1000);
+  
+    return () => clearTimeout(timeoutId);
+  }, [readerEnabled, selectedPost?.id]); // Use selectedPost.id instead of full object to avoid unnecessary re-runs
+  
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const index = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
@@ -107,6 +136,29 @@ export default function ImageViewer() {
   };
 
 
+  
+  const closePost = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        console.error('No token found');
+        router.push('/auth/login');
+        return;
+      }
+
+      if (source === 'home'){
+        router.push('/home')
+      }
+      else if (source !== 'home'){
+        router.back()
+      }
+      
+    } catch (err: any) {
+      console.error('Failed to save post:', err.message || err);
+    }
+  };
+
+
 
 
   if (!selectedPost || !token || images.length === 0) {
@@ -149,7 +201,7 @@ export default function ImageViewer() {
         </Text>
 
         {/* Close Button */}
-        <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.closeButton} onPress={() => closePost()}>
           <Icon name="x" size={28} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -207,12 +259,13 @@ export default function ImageViewer() {
             <TouchableOpacity
               style={styles.menuIconContainer}
               onPress={() => {
-                setSelectedPost(selectedPost);
+                // setSelectedPost(selectedPost);
                 SheetManager.show('post-actions', {
                   payload: {
                     // onDeletePost,
                     source: 'viewer',
-                    position: currentIndex
+                    position: currentIndex,
+                    isOwner,
                   }
                 });
               }}
@@ -226,7 +279,10 @@ export default function ImageViewer() {
 
 
 
-        <Text style={styles.title}>
+        <Text style={styles.title}
+          accessible={readerEnabled}
+          accessibilityLabel={`Title: ${selectedPost.title || 'Untitled Post'}`}
+        >
           {selectedPost.title || 'Untitled Post'}
         </Text>
 
@@ -234,13 +290,17 @@ export default function ImageViewer() {
           {selectedPost.caption || 'No caption provided.'}
         </Text>
 
-        <Text style={styles.description}>
+        <Text style={styles.description}
+          accessible={readerEnabled}
+          accessibilityLabel={`Caption: ${selectedPost.caption || 'No caption provided.'}`}
+        >
           <Text style={{ fontWeight: 'bold' }}>Description: </Text>
           {selectedPost.description || 'No description available.'}
+          <Text style={{ fontWeight: 'bold' }}>{isOwner ? "a" : "b"}</Text>
         </Text>
 
         <Text style={styles.timestamp}>
-          {selectedPost.created_at}
+          {selectedPost.created_at || 'created at'}
         </Text>
 
         <Text style={styles.software}>

@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch, getUserProfileImageUrl, getUserBannerImageUrl } from './api';
 import FastImage from 'react-native-fast-image';
 import { useTheme } from './contexts/ThemeContext';
+import { useReaderMode } from './contexts/ReaderModeContext';
 
 interface UserProfile {
   id: number;
@@ -23,6 +24,7 @@ const SettingsScreen = () => {
   const { theme, toggleTheme } = useTheme();
   const styles = theme === 'dark' ? darkStyles : lightStyles; 
 
+  const { readerEnabled, toggleReader } = useReaderMode();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [selectedProfilePic, setSelectedProfilePic] = useState<string | null>(null);
@@ -261,6 +263,15 @@ const SettingsScreen = () => {
           <View style={styles.optionButton}>
             <TouchableOpacity style={styles.button} onPress={toggleTheme}>
               <Text style={styles.buttonTextTheme}>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</Text>
+
+              {/* <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={24} color={theme === 'dark' ? '#eee' : '#333'} /> */}
+            </TouchableOpacity>
+
+            
+          </View>
+          <View style={styles.optionButton}>
+            <TouchableOpacity style={styles.button} onPress={toggleReader}>
+              <Text style={styles.buttonTextTheme}>{readerEnabled ? 'Disable Reader' : 'Enable Reader'}</Text>
 
               {/* <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={24} color={theme === 'dark' ? '#eee' : '#333'} /> */}
             </TouchableOpacity>

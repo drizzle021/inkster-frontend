@@ -8,17 +8,19 @@ import { SelectedPostProvider } from './contexts/selectedPostContext';
 import { SelectedUserProvider } from './contexts/selectedUserContext';
 import { SelectedReportProvider } from './contexts/selectedReportContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { ReaderModeProvider } from './contexts/ReaderModeContext';
 import './sheets.tsx';
 
 export default function RootLayout() {
   return (
     <ThemeProvider>
     <SelectedPostProvider>
+    <ReaderModeProvider>
     <SheetProvider>
       <SelectedReportProvider>
       <SelectedUserProvider>
       
-        <PostActionsSheet sheetId='post-actions'/>
+        {/* <PostActionsSheet sheetId='post-actions'/> */}
         <AddPostSheet />
         <OpenCommentsSheet />
         <Stack
@@ -40,6 +42,7 @@ export default function RootLayout() {
       </SelectedUserProvider>
       </SelectedReportProvider>
     </SheetProvider>
+    </ReaderModeProvider>
     </SelectedPostProvider>
     </ThemeProvider>
   );

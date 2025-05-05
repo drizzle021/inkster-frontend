@@ -106,7 +106,10 @@ const ProfileScreen = () => {
         });
     
         setSelectedPost(post.data);
-        router.push('/imageViewer');
+        router.push({
+          pathname: '/imageViewer',
+          params: { source: 'profile' }
+        });
       } catch (err) {
         console.error('Failed to load post details', err);
       }
@@ -126,8 +129,11 @@ const ProfileScreen = () => {
         });
     
         setSelectedPost(post.data);
-        console.log(post.data)
-        router.push('/openedNovel');
+        // console.log(post.data)
+        router.push({
+          pathname: '/openedNovel',
+          params: { source: 'profile' }
+        });
       } catch (err) {
         console.error('Failed to load post details', err);
       }
