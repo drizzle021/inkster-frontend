@@ -128,7 +128,9 @@ export default function PostActionsSheet(props: SheetProps<"post-actions">) {
         router.push('/home');
       }
       else{
-        router.push('/profile');
+        router.push({ pathname: '/profile', params: { postDeleted: 'true' } });
+
+        
       }
       
     } catch (err) {
@@ -250,7 +252,6 @@ export default function PostActionsSheet(props: SheetProps<"post-actions">) {
         {/* {renderViewerOptions()} */}
         <TouchableOpacity style={styles.cancel} onPress={() => cancel()}>
           <Text style={styles.cancelText}>Cancel</Text>
-          <Text style={styles.cancelText}>{isOwner ? 'a': 'b'}</Text>
           
         </TouchableOpacity>
       </View>
