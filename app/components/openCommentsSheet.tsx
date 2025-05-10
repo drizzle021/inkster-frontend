@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TextInput, Image, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TextInput, Image, Alert, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import ActionSheet from 'react-native-actions-sheet';
 import { SheetManager } from 'react-native-actions-sheet';
 import { useRouter } from 'expo-router';
@@ -56,7 +56,8 @@ export default function OpenCommentsSheet() {
         setComments(data.data);
         console.log(data)
       } catch (error) {
-        console.error('Failed to load comments:', error);
+        console.error('Post not found: ', error);
+        
       } finally {
         setLoading(false);
       }
@@ -88,26 +89,33 @@ export default function OpenCommentsSheet() {
   
   const handleSendComment = async () => {
     if (!newComment.trim() || !selectedPost) return;
-  
+    let result
     try {
       const formData = new FormData();
       formData.append('content', newComment.trim());
   
-      await apiFetch(`/posts/comments/${selectedPost.id}`, {
+      result = await apiFetch(`/posts/comments/${selectedPost.id}`, {
         method: 'POST',
         body: formData,
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-  
+      
 
       const updatedComments = await apiFetch<Comment[]>(`/posts/comments/${selectedPost.id}`);
       setComments(updatedComments.data);
       setNewComment(''); // Clear input box
   
     } catch (error) {
-      console.error('Failed to send comment:', error);
+      if (error instanceof Error && error.message.includes('Network')){
+        Alert.alert('Error', 'No internet connection!');
+      }
+      else{
+        Alert.alert('Error', 'Post has been deleted!');
+      }
+      await SheetManager.hide('comments-sheet');
+      router.push('/home');
     }
   };
   
