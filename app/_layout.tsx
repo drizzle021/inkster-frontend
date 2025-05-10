@@ -12,8 +12,42 @@ import { ReaderModeProvider } from './contexts/ReaderModeContext';
 import { SocketProvider } from './contexts/SocketContext';
 import Toast from 'react-native-toast-message';
 import './sheets.tsx';
+import { useEffect } from 'react';
+import messaging from '@react-native-firebase/messaging';
+import { Alert, Platform } from 'react-native';
 
 export default function RootLayout() {
+  useEffect(() => {
+    // Handle foreground messages
+    const unsubscribe = messaging().onMessage(async remoteMessage => {
+      console.log('Foreground message:', remoteMessage);
+      Alert.alert(remoteMessage.notification?.title ?? 'Notification', remoteMessage.notification?.body ?? '');
+    });
+
+    // Handle background tap
+    messaging().onNotificationOpenedApp(remoteMessage => {
+      console.log('Notification opened from background state:', remoteMessage);
+    });
+
+    // Handle quit tap
+    messaging()
+      .getInitialNotification()
+      .then(remoteMessage => {
+        if (remoteMessage) {
+          console.log('Notification opened from quit state:', remoteMessage);
+        }
+      });
+
+    return unsubscribe;
+  }, []);
+
+  // Handle background messages
+  useEffect(() => {
+    messaging().setBackgroundMessageHandler(async remoteMessage => {
+      console.log('Message handled in the background!', remoteMessage);
+    });
+  }, []);
+
   return (
     <ThemeProvider>
     <SocketProvider>

@@ -13,6 +13,7 @@ import { useLocalSearchParams } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { getToastConfig } from './contexts/SocketContext';
 import { useSocket } from './contexts/SocketContext';
+import analytics from '@react-native-firebase/analytics';
 
 interface UserPost {
   id: number;
@@ -193,6 +194,14 @@ const ProfileScreen = () => {
           },
         });
     
+
+        const newFollowState = !isFollowing;
+
+        await analytics().logEvent('user_follow_toggle', {
+          target_user_id: user.id.toString(),
+          action: newFollowState ? 'follow' : 'unfollow',
+        });
+        
         // 1. Update local follow state
         setIsFollowing((prev) => !prev);
         

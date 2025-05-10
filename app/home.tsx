@@ -19,6 +19,8 @@ import { BlurView } from 'expo-blur';
 import { useTheme } from './contexts/ThemeContext';
 import { PostType } from './contexts/selectedPostContext'
 import analytics from '@react-native-firebase/analytics';
+import messaging from '@react-native-firebase/messaging';
+import { PermissionsAndroid, Platform } from 'react-native';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -126,8 +128,17 @@ const PostIllustration = ({ post, onDeletePost }: { post: any, onDeletePost: (de
           'Authorization': `Bearer ${token}`,
         },
       });
-      console.log(post.id)
-      setLikedPost(!likedPost); 
+
+      const newLikeState = !likedPost;
+      setLikedPost(newLikeState);
+
+      await analytics().logEvent('post_like_toggle', {
+        post_id: post.id.toString(),
+        liked: newLikeState,
+        author_id: post.author.id.toString(),
+        post_type: post.post_type,
+      });
+
     } catch (err: any) {
       console.error('Failed to like post:', err.message || err);
     }
@@ -148,8 +159,16 @@ const PostIllustration = ({ post, onDeletePost }: { post: any, onDeletePost: (de
           'Authorization': `Bearer ${token}`,
         },
       });
-      console.log('Saved post:', post.id);
-      setSavedPost(!savedPost);
+      
+      const newSaveState = !savedPost;
+      setSavedPost(newSaveState);
+
+      await analytics().logEvent('post_save_toggle', {
+        post_id: post.id.toString(),
+        saved: newSaveState,
+        author_id: post.author.id.toString(),
+        post_type: post.post_type,
+      });
     } catch (err: any) {
       console.error('Failed to save post:', err.message || err);
     }
@@ -170,7 +189,14 @@ const PostIllustration = ({ post, onDeletePost }: { post: any, onDeletePost: (de
       });
   
       setSelectedPost(post.data);
-      console.log(post.data)
+      // console.log(post.data)
+
+      await analytics().logEvent('post_image_opened', {
+        post_id: post.data.id.toString(),
+        author_id: post.data.author.id.toString(),
+        post_type: post.data.post_type,
+      });
+
       router.push({
         pathname: '/imageViewer',
         params: { 
@@ -395,7 +421,14 @@ const PostNovel: React.FC<PostNovelProps> = ({ post, onDeletePost }) => {
       });
   
       setSelectedPost(post.data);
-      console.log(post.data)
+      // console.log(post.data)
+
+      await analytics().logEvent('post_novel_opened', {
+        post_id: post.data.id.toString(),
+        author_id: post.data.author.id.toString(),
+        post_type: post.data.post_type,
+      });
+
       router.push('/openedNovel');
     } catch (err) {
       console.error('Failed to load post details', err);
@@ -471,6 +504,30 @@ const HomeScreen = () => {
     router.push('./search');
   };
 
+  const requestAndroidNotificationPermission = async () => {
+  if (Platform.OS === 'android' && Platform.Version >= 33) {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+      );
+
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        console.log('Notification permission granted');
+        return true;
+      } else {
+        console.warn('Notification permission denied');
+        return false;
+      }
+    } catch (err) {
+      console.error('Failed to request notification permission', err);
+      return false;
+    }
+  } else {
+    // Pre-Android 13 or iOS (no POST_NOTIFICATIONS permission needed)
+    return true;
+  }
+};
+
   useEffect(() => {
     const fetchPosts = async () => {
       try {
@@ -525,6 +582,36 @@ const HomeScreen = () => {
     fetchPosts();
   }, []);
   
+  useEffect(() => {
+    const setupFCM = async () => {
+      const permissionGranted = await requestAndroidNotificationPermission();
+      if (!permissionGranted) return;
+      // console.log(permissionGranted)
+      const authStatus = await messaging().requestPermission();
+      const enabled =
+        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+      console.log(enabled)
+      if (enabled) {
+        const fcmToken = await messaging().getToken();
+        await AsyncStorage.setItem('fcmToken', fcmToken);
+        console.log(fcmToken)
+        const token = await AsyncStorage.getItem('token');
+        
+        // Send this token to your backend to associate with the logged-in user
+        await apiFetch('/users/fcm-token', {
+          method: 'POST',
+          body: JSON.stringify({ token: fcmToken }),
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      }
+    };
+    setupFCM();
+  }, []);
   
 
   return (
