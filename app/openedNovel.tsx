@@ -64,15 +64,24 @@ export default function OpenedNovel() {
   }, [selectedPost]);
 
   useEffect(() => {
-    if (!readerEnabled || !selectedPost?.title) return;
+    if (!readerEnabled || !selectedPost) return;
   
-    const content = `Title: ${selectedPost.title}. Caption: ${selectedPost.caption || 'No caption provided.'}`;
+    const descTimeout = setTimeout(() => {
+      if (selectedPost.description) {
+        AccessibilityInfo.announceForAccessibility(`Post image. ${selectedPost.description} || 'No description provided.'`);
+      }
+    }, 500);
+
+    const textTimeout = setTimeout(() => {
+      AccessibilityInfo.announceForAccessibility(
+        `Title: ${selectedPost.title}. Caption: ${selectedPost.caption || 'No caption provided.'}`
+      );
+    }, 1500);
   
-    const timeoutId = setTimeout(() => {
-      AccessibilityInfo.announceForAccessibility(content);
-    }, 1000);
-  
-    return () => clearTimeout(timeoutId);
+    return () => {
+      clearTimeout(descTimeout);
+      clearTimeout(textTimeout);
+    };
   }, [readerEnabled, selectedPost?.id]); 
   
 
@@ -132,11 +141,15 @@ export default function OpenedNovel() {
         <ScrollView style={styles.scrollContainer}>
 
             <FastImage
+            
             source={{
                 uri: images[0]?.uri,
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             }}
             style={styles.postImage}
+            accessible={readerEnabled}
+            accessibilityRole="image"
+            accessibilityLabel={`Description: ${selectedPost?.description || 'No description'}`}
             />
             
             <View style={styles.details}>
@@ -181,7 +194,6 @@ export default function OpenedNovel() {
                     )}
                 </View>
 
-                <Text>{selectedPost?.created_at}</Text>
 
                 <View style={styles.actions}>
                     <Text style={{ marginRight: 8 }}>{likeCount}</Text>
