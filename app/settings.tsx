@@ -47,9 +47,19 @@ const SettingsScreen = () => {
         const userData = await apiFetch<UserProfile>('/users/me', {
           headers: { Authorization: `Bearer ${storedToken}` },
         });
+
+        await AsyncStorage.setItem('cachedProfile', JSON.stringify(userData));
+
+
         setUser(userData.data);
       } catch (err: any) {
-        console.error('Failed to fetch user:', err.message || err);
+        const cached = await AsyncStorage.getItem('cachedProfile');
+          if (cached) {
+            setUser(JSON.parse(cached).data);
+            console.log('Loaded profile from cache');
+          } else {
+            console.error('No cached profile available');
+          }
       }
     };
 

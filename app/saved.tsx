@@ -33,10 +33,18 @@ const SavedPostsScreen = () => {
           headers: { Authorization: `Bearer ${storedToken}` },
         });
 
+        await AsyncStorage.setItem('savedPosts', JSON.stringify(posts));
+
         setSavedPosts(posts.data);
         console.log(savedPosts)
       } catch (err: any) {
-        console.error('Error fetching saved posts:', err.message || err);
+        const cached = await AsyncStorage.getItem('savedPosts');
+        if (cached) {
+          setSavedPosts(JSON.parse(cached).data);
+          console.log('Loaded saved posts from cache');
+        } else {
+          console.error('No cached saved posts available');
+        }
       }
     };
 

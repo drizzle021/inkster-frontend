@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Dimensions, View, Text, Image, StyleSheet,
-  TouchableOpacity, ScrollView, FlatList, NativeSyntheticEvent, NativeScrollEvent
+  TouchableOpacity, ScrollView, FlatList, NativeSyntheticEvent, NativeScrollEvent, Button
 } from 'react-native';
 import BottomNavigation from './components/navigation';
 import TopNavigation from './components/top_navigation';
@@ -18,6 +18,7 @@ import FastImage from 'react-native-fast-image';
 import { BlurView } from 'expo-blur';
 import { useTheme } from './contexts/ThemeContext';
 import { PostType } from './contexts/selectedPostContext'
+import analytics from '@react-native-firebase/analytics';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -260,7 +261,7 @@ const PostIllustration = ({ post, onDeletePost }: { post: any, onDeletePost: (de
         <TouchableOpacity
           style={styles.menuIconContainer}
           onPress={() => {
-            // setSelectedPost(post);
+            setSelectedPost(post);
             SheetManager.show('post-actions', {
               payload: {
                 // onDeletePost,
@@ -305,7 +306,10 @@ const PostIllustration = ({ post, onDeletePost }: { post: any, onDeletePost: (de
       </TouchableOpacity>
 
       <View style={styles.actions}>
-        <TouchableOpacity onPress={handleLike}>
+        <TouchableOpacity onPress={
+            handleLike
+          }
+        >
           <FontAwesome
             name={likedPost ? 'heart' : 'heart-o'}
             size={24}
@@ -330,7 +334,17 @@ const PostIllustration = ({ post, onDeletePost }: { post: any, onDeletePost: (de
           />
         </TouchableOpacity>
       </View>
-
+      <Button
+        title="Press me"
+        // Logs in the firebase analytics console as "select_content" event
+        // only accepts the two object properties which accept strings.
+        onPress={async () =>
+          await analytics().logSelectContent({
+            content_type: 'clothing',
+            item_id: 'abcd',
+          })
+        }
+      />
       <Text style={styles.caption}>{post.caption}</Text>
       <Text style={styles.timestamp}>{post.created_at}</Text>    
       <Text style={styles.caption}>ID: {post.id}</Text>
@@ -475,9 +489,20 @@ const HomeScreen = () => {
           },
         });
   
-        setData(posts.data);
+        const sorted = [...posts.data].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        
+        await AsyncStorage.setItem('cachedPosts', JSON.stringify(sorted));
+        
+        setData(sorted);
       } catch (err: any) {
-        console.error('Error fetching posts:', err.message || err);
+        
+        const cached = await AsyncStorage.getItem('cachedPosts');
+        if (cached) {
+          setData(JSON.parse(cached));
+          console.log('Loaded posts from cache');
+        } else {
+          console.error('No cached posts available');
+        }
       }
     };
 

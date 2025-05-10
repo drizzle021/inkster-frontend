@@ -9,6 +9,10 @@ import { useSelectedPost } from './contexts/selectedPostContext';
 import { useSelectedUser } from './contexts/selectedUserContext';
 import FastImage from 'react-native-fast-image';
 import { useTheme } from './contexts/ThemeContext';
+import { useLocalSearchParams } from 'expo-router';
+import Toast from 'react-native-toast-message';
+import { getToastConfig } from './contexts/SocketContext';
+import { useSocket } from './contexts/SocketContext';
 
 interface UserPost {
   id: number;
@@ -45,6 +49,7 @@ const ProfileScreen = () => {
     const { theme } = useTheme();
     const styles = theme === 'dark' ? darkStyles : lightStyles;
 
+    const params = useLocalSearchParams();
     const [user, setUser] = useState<UserProfile | null>(null);
     const { setSelectedPost } = useSelectedPost();
     const { selectedUser } = useSelectedUser();
@@ -53,6 +58,24 @@ const ProfileScreen = () => {
     const isDefaultProfilePicture = user?.profile_picture?.includes('default');
     const isDefaultBanner = user?.banner?.includes('background');
   
+    const { socket } = useSocket();
+
+    useEffect(() => {
+      if (params.postDeleted === 'true') {
+        setTimeout(() => {
+          Toast.show({
+            type: 'success',
+            text1: 'Post deleted',
+            position: 'top',
+            visibilityTime: 3000,
+          });
+
+        }, 500);
+    
+        
+      }
+    }, []);
+    
 
     useEffect(() => {
       const fetchData = async () => {
@@ -76,16 +99,28 @@ const ProfileScreen = () => {
           const userData = await apiFetch<UserProfile>(url, {
             headers: { Authorization: `Bearer ${token}` },
           });
+
+          await AsyncStorage.setItem('cachedProfile', JSON.stringify(loggedInUser));
     
           setUser(userData.data);
           setIsFollowing(userData.data.is_following || false);
         } catch (err: any) {
-          console.error('Error loading user:', err.message || err);
+          
+          const cached = await AsyncStorage.getItem('cachedProfile');
+          if (cached) {
+            setUser(JSON.parse(cached).data);
+            setIsFollowing(JSON.parse(cached).data.is_following || false);
+            console.log('Loaded profile from cache');
+          } else {
+            console.error('No cached profile available');
+          }
         }
       };
     
       fetchData();
     }, [selectedUser]);
+
+
     
 
     function formatTags(tags: string[] = []) {
@@ -160,7 +195,23 @@ const ProfileScreen = () => {
     
         // 1. Update local follow state
         setIsFollowing((prev) => !prev);
-    
+        
+        // socket emit to follow
+        if (isFollowing){
+          socket?.emit('unfollow', {
+            token: token,
+            unfollowed_user_id: user.id
+          });
+        }
+        else{
+          socket?.emit('follow', {
+            token: token,
+            followed_user_id: user.id
+          });
+        }
+
+
+
         // 2. Update "followers" count for the viewed user
         setUser((prevUser) => 
           prevUser
@@ -176,6 +227,8 @@ const ProfileScreen = () => {
               : prevUser
           );
         }
+
+        
     
       } catch (err: any) {
         console.error('Failed to toggle follow:', err.message || err);
@@ -185,9 +238,10 @@ const ProfileScreen = () => {
     
 
     return (
+      <>
         <View style={styles.container}>
             <TopNavigation />
-
+            
             
             <ScrollView style={styles.scrollContainer}>
             {/* Profile Section */}
@@ -365,6 +419,8 @@ const ProfileScreen = () => {
 
             <BottomNavigation />
         </View>
+        <Toast config={getToastConfig(theme)} />
+        </>
     );
 };
 
@@ -630,7 +686,7 @@ const darkStyles = StyleSheet.create({
     borderRadius: 10,
   },
   tags: {
-    color: '#A7F3D0',
+    color: '#7B61FF',
     fontWeight: 'bold',
   },
   imageWrapper: {
