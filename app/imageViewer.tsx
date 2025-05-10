@@ -237,6 +237,7 @@ export default function ImageViewer() {
                   name={likedPost ? 'heart' : 'heart-o'}
                   size={24}
                   color={likedPost ? 'red' : 'black'}
+                  style={styles.likeButton}
                 />
               </TouchableOpacity>
               <TouchableOpacity
@@ -252,6 +253,7 @@ export default function ImageViewer() {
                   name={savedPost ? 'bookmark' : 'bookmark-o'}
                   size={24}
                   color={savedPost ? '#7B61FF' : 'black'}
+                  style={styles.saveButton}
                 />
               </TouchableOpacity>
             </View>
@@ -296,7 +298,6 @@ export default function ImageViewer() {
         >
           <Text style={{ fontWeight: 'bold' }}>Description: </Text>
           {selectedPost.description || 'No description available.'}
-          <Text style={{ fontWeight: 'bold' }}>{isOwner ? "a" : "b"}</Text>
         </Text>
 
         <Text style={styles.timestamp}>
@@ -459,6 +460,12 @@ const lightStyles = StyleSheet.create({
   iconColor: {
     color: '#000'
   },
+  likeButton:{
+    color: 'red'
+  },
+  saveButton:{
+    color: "#7B61FF"
+  }
 });
 
 
@@ -601,4 +608,10 @@ const darkStyles = StyleSheet.create({
   iconColor: {
     color: '#fff'
   },
+  likeButton:{
+    color: '#fff'
+  },
+  saveButton:{
+    color: "#fff"
+  }
 });
