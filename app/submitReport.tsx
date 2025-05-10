@@ -10,7 +10,7 @@ import { useTheme } from './contexts/ThemeContext';
 const issues = [
   'HATE',
   'ABUSE',
-  'VIOLENT_SPEECH',
+  'VIOLENT',
   'PRIVACY',
   'SPAM',
   'IMPERSONATION',
