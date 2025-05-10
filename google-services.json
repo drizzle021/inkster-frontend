@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "798332140702",
+    "project_id": "inkster-e3441",
+    "storage_bucket": "inkster-e3441.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:798332140702:android:3efd3e9f694b6a3ba94f8f",
+        "android_client_info": {
+          "package_name": "com.anonymous.inkster"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDlAor8TVBPyd79U4AUhb3YvcL2xpjCuj0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
