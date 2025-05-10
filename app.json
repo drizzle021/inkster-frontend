@@ -9,14 +9,29 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "bundleIdentifier": "com.anonymous.inkster",
+      "supportsTablet": true,
+      "config": {
+        "googleMapsApiKey": "AIzaSyC6n2e9pHGCK6VwllNxHoj9zlDj1LLUsn0"
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to show where you are on the map."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.anonymous.inkster"
+      "config": {
+        "googleMaps": {
+            "apiKey": "AIzaSyC6n2e9pHGCK6VwllNxHoj9zlDj1LLUsn0"
+        }
+      },
+      "package": "com.anonymous.inkster",
+      "googleServicesFile": "./google-services.json",
+      "permissions": ["ACCESS_FINE_LOCATION"]
     },
     "web": {
       "bundler": "metro",
@@ -25,6 +40,8 @@
     },
     "plugins": [
       "expo-router",
+      "@react-native-firebase/app",
+      "@react-native-firebase/analytics",
       [
         "expo-splash-screen",
         {
