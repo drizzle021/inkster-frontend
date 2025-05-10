@@ -11,6 +11,7 @@ import { apiFetch, getImageUrl } from './api';
 import { useTheme } from './contexts/ThemeContext';
 import { useSelectedPost } from './contexts/selectedPostContext';
 import FastImage from 'react-native-fast-image';
+import { useSocket } from './contexts/SocketContext';
 
 const screenWidth = Dimensions.get('window').width;
 const softwares = [
@@ -25,6 +26,8 @@ const softwares = [
 export default function AddPost() {
   const { postType } = useLocalSearchParams<{ postType?: string }>();
   const resolvedPostType = Array.isArray(postType) ? postType[0] : postType;
+
+  const { socket } = useSocket();
 
   const [isEditing, setIsEditing] = useState(false); 
   const [isNewPost, setIsNewPost] = useState(false);
@@ -173,7 +176,18 @@ export default function AddPost() {
           },
           body: formData,
         });
+
+
+        socket?.emit('new_post', {
+          token: token,
+          post_title: title,
+        });
       }
+
+
+
+
+
 
       
       router.push('/profile');

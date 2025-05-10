@@ -9,11 +9,15 @@ import { SelectedUserProvider } from './contexts/selectedUserContext';
 import { SelectedReportProvider } from './contexts/selectedReportContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ReaderModeProvider } from './contexts/ReaderModeContext';
+import { SocketProvider } from './contexts/SocketContext';
+import Toast from 'react-native-toast-message';
 import './sheets.tsx';
 
 export default function RootLayout() {
   return (
     <ThemeProvider>
+    <SocketProvider>
+
     <SelectedPostProvider>
     <ReaderModeProvider>
     <SheetProvider>
@@ -44,6 +48,8 @@ export default function RootLayout() {
     </SheetProvider>
     </ReaderModeProvider>
     </SelectedPostProvider>
+
+    </SocketProvider>
     </ThemeProvider>
   );
 }
