@@ -1,150 +1,151 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Button, Alert, ActivityIndicator, Linking } from 'react-native';
-
+import MapView, { PROVIDER_DEFAULT, Region, Marker } from 'react-native-maps';
+import * as Location from 'expo-location';
+import { View, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNavigation from './components/navigation';
 import TopNavigation from './components/top_navigation';
 import { useTheme } from './contexts/ThemeContext';
 import { apiFetch } from './api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import { SheetManager } from 'react-native-actions-sheet';
 
-
-interface Exhibition {
+type Exhibition = {
   id: string;
   name: string;
   address: string;
   latitude: number;
   longitude: number;
   rating: number | string;
-  website: string;
+  website: string | undefined;
   gmaps: string;
-  summary: { languageCode: string; text: string } | null;
-}
+  directions_link: string;
+  summary: {
+    text?: string;
+    languageCode?: string;
+  };
+};
+
+type LocationType = {
+  coords: {
+    latitude: number;
+    longitude: number;
+    altitude?: number | null;
+    accuracy?: number | null;
+    heading?: number | null;
+    speed?: number | null;
+  };
+  timestamp: number;
+};
+
+
 
 const MapScreen = () => {
-  // const [location, setLocation] = useState<LocationObject | null>(null);
-  const [nearbyExhibitions, setNearbyExhibitions] = useState<Exhibition[]>([]); // Explicitly type
-  const [loadingLocation, setLoadingLocation] = useState(true);
-  const [loadingExhibitions, setLoadingExhibitions] = useState(true);
   const { theme } = useTheme();
   const styles = theme === 'dark' ? darkStyles : lightStyles;
-  const [token, setToken] = useState<string | null>(null);
-
+  const router = useRouter();
+  const [region, setRegion] = useState<Region | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [location, setLocation] = useState<LocationType | null>(null);
+  const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
+ 
   useEffect(() => {
-    // const getPermissionsAndLocation = async () => {
-    //   let { status } = await Location.requestForegroundPermissionsAsync();
-    //   if (status !== 'granted') {
-    //     Alert.alert('Permission denied', 'Location access was not granted');
-    //     setLoadingLocation(false);
-    //     return;
-    //   }
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Location access is required to show the map.');
+        setLoading(false);
+        return;
+      }
 
-    //   try {
-    //     let currentLocation = await Location.getCurrentPositionAsync({});
-    //     setLocation(currentLocation);
-    //   } catch (error) {
-    //     console.error('Error getting current location:', error);
-    //     Alert.alert('Error', 'Failed to get current location.');
-    //   } finally {
-    //     setLoadingLocation(false);
-    //   }
-    // };
-
-    // getPermissionsAndLocation();
+      const location = await Location.getCurrentPositionAsync({});
+      setRegion({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+      setLoading(false);
+      setLocation(location);
+    })();
   }, []);
 
+
   useEffect(() => {
-    // const fetchExhibitions = async () => {
-    //   if (location) {
-    //     try {
-    //       const storedToken = await AsyncStorage.getItem('token');
-    //       if (!storedToken) {
-    //         console.error('No token found');
-    //         setLoadingExhibitions(false);
-    //         return;
-    //       }
-    //       setToken(storedToken);
-
-    //       const response = await apiFetch<Exhibition[]>( // Explicitly type response data
-    //         `/map/nearby-exhibitions?lat=${location.coords.latitude}&lng=${location.coords.longitude}`
-    //       );
-    //       if (response.status >= 200 && response.status < 300) {
-    //         setNearbyExhibitions(response.data);
-    //       } else {
-    //         console.error('Failed to fetch nearby exhibitions:', response.status);
-    //         Alert.alert('Error', 'Failed to fetch nearby exhibitions.');
-    //       }
-    //     } catch (error) {
-    //       console.error('Error fetching exhibitions:', error);
-    //       Alert.alert('Error', 'Failed to fetch nearby exhibitions.');
-    //     } finally {
-    //       setLoadingExhibitions(false);
-    //     }
-    //   }
-    // };
-
-    // fetchExhibitions();
+    if (!location) return;
+  
+    const fetchExhibitions = async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          console.error('No token found');
+          await AsyncStorage.removeItem('token');
+          router.push('/auth/login');
+          return;
+        }
+  
+        const { latitude, longitude } = location.coords;
+  
+        const response = await apiFetch(
+          `/map/nearby-exhibitions?lat=${latitude}&lng=${longitude}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+  
+        setExhibitions(response.data);
+        console.log(response.data)
+      } catch (err: any) {
+        console.error('Error fetching exhibitions:', err.message || err);
+      }
+    };
+  
+    fetchExhibitions();
   }, [location]);
+  
 
   return (
     <View style={styles.container}>
       <TopNavigation />
 
       <View style={styles.content}>
-        <Text style={styles.header}>Map HEHE</Text>
-
-        {/* <View style={styles.mapContainer}>
-          {loadingLocation || loadingExhibitions ? (
-            <ActivityIndicator size="large" />
-          ) : location ? (
-            <MapView
-              style={styles.map}
-              initialCamera={{
-                center: {
-                  latitude: location.coords.latitude,
-                  longitude: location.coords.longitude,
-                },
-                zoom: 14,
-              }}
-            >
-              <MapView.Marker
+        {loading || !region ? (
+          <ActivityIndicator size="large" color="#7B61FF" />
+        ) : (
+          <MapView
+            style={styles.map}
+            provider={PROVIDER_DEFAULT}
+            region={region}
+            showsUserLocation={true}
+            showsMyLocationButton={true}
+          >
+            {exhibitions.map((exhibition) => (
+              <Marker
+                key={exhibition.id}
                 coordinate={{
-                  latitude: location.coords.latitude,
-                  longitude: location.coords.longitude,
+                  latitude: exhibition.latitude,
+                  longitude: exhibition.longitude,
                 }}
-                title="Your Location"
+                title={exhibition.name}
+                description={exhibition.address}
+                onCalloutPress={() => {
+                  SheetManager.show('exhibition-details', {
+                    payload: exhibition,
+                  });
+                }}
               />
-              {nearbyExhibitions.map((exhibition) => (
-                <MapView.Marker
-                  key={exhibition.id}
-                  coordinate={{
-                    latitude: exhibition.latitude,
-                    longitude: exhibition.longitude,
-                  }}
-                  title={exhibition.name}
-                  description={exhibition.address}
-                  onPress={() => {
-                    Alert.alert(
-                      exhibition.name,
-                      `${exhibition.address}\nRating: ${exhibition.rating}\nWebsite: ${exhibition.website}`,
-                      [
-                        { text: 'Open in Maps', onPress: () => Linking.openURL(exhibition.gmaps) },
-                        { text: 'Cancel', style: 'cancel' },
-                      ]
-                    );
-                  }}
-                />
-              ))}
-            </MapView>
-          ) : (
-            <Text style={styles.errorText}>Location not available.</Text>
-          )}
-        </View> */}
+            ))}
+          </MapView>
+        )}
       </View>
 
       <BottomNavigation />
     </View>
   );
 };
+
 
 const lightStyles = StyleSheet.create({
   container: {
@@ -155,6 +156,10 @@ const lightStyles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     padding: 20,
+  },
+  map: {
+    width: '100%',
+    height: '100%',
   },
   header: {
     color: '#000',
@@ -169,9 +174,6 @@ const lightStyles = StyleSheet.create({
     overflow: 'hidden',
     marginTop: 20,
   },
-  map: {
-    flex: 1,
-  },
   errorText: {
     color: 'red',
     marginTop: 20,
@@ -182,15 +184,19 @@ const lightStyles = StyleSheet.create({
 const darkStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#0D0D0D',
   },
   content: {
     flex: 1,
     alignItems: 'center',
     padding: 20,
   },
+  map: {
+    width: '100%',
+    height: '100%',
+  },
   header: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
@@ -201,15 +207,14 @@ const darkStyles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     marginTop: 20,
-  },
-  map: {
-    flex: 1,
+    backgroundColor: '#1A1A1A',
   },
   errorText: {
-    color: '#ff4d4d',
+    color: '#FF5A5F', 
     marginTop: 20,
+    fontSize: 14,
   },
-
 });
+
 
 export default MapScreen;
