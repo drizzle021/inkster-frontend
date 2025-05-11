@@ -21,6 +21,7 @@ import { PostType } from './contexts/selectedPostContext'
 import analytics from '@react-native-firebase/analytics';
 import messaging from '@react-native-firebase/messaging';
 import { PermissionsAndroid, Platform } from 'react-native';
+import Device from 'react-native-device-info';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -360,17 +361,7 @@ const PostIllustration = ({ post, onDeletePost }: { post: any, onDeletePost: (de
           />
         </TouchableOpacity>
       </View>
-      <Button
-        title="Press me"
-        // Logs in the firebase analytics console as "select_content" event
-        // only accepts the two object properties which accept strings.
-        onPress={async () =>
-          await analytics().logSelectContent({
-            content_type: 'clothing',
-            item_id: 'abcd',
-          })
-        }
-      />
+
       <Text style={styles.caption}>{post.caption}</Text>
       <Text style={styles.timestamp}>{post.created_at}</Text>    
       <Text style={styles.caption}>ID: {post.id}</Text>
@@ -499,6 +490,8 @@ const HomeScreen = () => {
   const { theme } = useTheme();
   const styles = theme === 'dark' ? darkStyles : lightStyles;
   const { setCurrentUser } = useSelectedUser();
+
+  const isTablet = Device.isTablet()
 
   const openSearch = async () => {
     router.push('./search');
@@ -635,8 +628,24 @@ const HomeScreen = () => {
           </Text>
         </TouchableOpacity>
       </View>
+      
+      {isTablet ? (
 
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        <FlatList numColumns={2} contentContainerStyle={{flexGrow:1}} data={data} renderItem={({item}) => 
+          <PostIllustration
+            post={item}
+            onDeletePost={(deletedPostId: number) => {
+              setData(prevData => prevData.filter(p => p.id !== deletedPostId));
+            }}
+          />
+
+          
+        }>
+
+
+        </FlatList>
+      ): (
+        <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
       {data
         .filter((post) => {
           if (activeTab === 'Novels') return post.post_type === 'NOVEL';
@@ -665,6 +674,13 @@ const HomeScreen = () => {
         
       }
       </ScrollView>
+
+
+      )
+      
+    }
+
+      
 
       <BottomNavigation />
     </View>
@@ -754,11 +770,12 @@ const lightStyles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   postContainer: {
+    flex:1,
     marginBottom: 30, 
     paddingBottom: 10,
   },
   carouselImage: {
-    width: screenWidth,
+    width: "100%",
     height: 300,
     resizeMode: 'cover',
   },

@@ -31,8 +31,9 @@ export default function Index() {
         justifyContent: "center",
         alignItems: "center",
       }}
-    >
-      <Link href="/home"> start</Link>
+    > 
+    {/* left here for debugging */}
+      <Link href="/home"> start</Link> 
 
     </View>
   );

@@ -14,7 +14,9 @@ import Toast from 'react-native-toast-message';
 import './sheets.tsx';
 import { useEffect } from 'react';
 import messaging from '@react-native-firebase/messaging';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
+import * as ScreenOrientation from 'expo-screen-orientation'
+import Device from 'react-native-device-info';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -46,6 +48,17 @@ export default function RootLayout() {
     messaging().setBackgroundMessageHandler(async remoteMessage => {
       console.log('Message handled in the background!', remoteMessage);
     });
+  }, []);
+
+  useEffect(() => {
+    const lockOrientation = async () => {
+      if(Device.isTablet()){
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT)
+      }
+    };
+
+    lockOrientation();
+
   }, []);
 
   return (
